@@ -1,0 +1,382 @@
+"""Chrome DevTools Protocol (CDP) utilities for cookie extraction.
+
+This module provides a keychain-free way to extract cookies from Chrome
+by using the Chrome DevTools Protocol over WebSocket.
+
+Usage:
+    1. Chrome is launched with --remote-debugging-port
+    2. We connect via WebSocket and use Network.getCookies
+    3. No keychain access required!
+"""
+
+import json
+import platform
+import re
+import shutil
+import subprocess
+import time
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from nlm.core.exceptions import AuthenticationError
+
+
+CDP_DEFAULT_PORT = 9222
+NOTEBOOKLM_URL = "https://notebooklm.google.com/"
+
+
+def get_chrome_path() -> str | None:
+    """Get the Chrome executable path for the current platform."""
+    system = platform.system()
+    
+    if system == "Darwin":
+        path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        return path if Path(path).exists() else None
+    elif system == "Linux":
+        candidates = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]
+        for candidate in candidates:
+            if shutil.which(candidate):
+                return candidate
+        return None
+    elif system == "Windows":
+        path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        return path if Path(path).exists() else None
+    
+    return None
+
+
+def get_chrome_profile_dir() -> Path:
+    """Get the CLI's Chrome profile directory.
+    
+    We use a separate profile at ~/.nlm/chrome-profile so we can run
+    alongside the user's main Chrome browser without conflicts.
+    """
+    return Path.home() / ".nlm" / "chrome-profile"
+
+
+def is_profile_locked() -> bool:
+    """Check if the Chrome profile is locked (Chrome is using it)."""
+    lock_file = get_chrome_profile_dir() / "SingletonLock"
+    return lock_file.exists()
+
+
+def launch_chrome(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> bool:
+    """Launch Chrome with remote debugging enabled.
+    
+    Args:
+        port: The debugging port to use
+        headless: If True, launch in headless mode (no visible window)
+    
+    Returns:
+        True if Chrome was launched successfully
+    """
+    chrome_path = get_chrome_path()
+    if not chrome_path:
+        return False
+    
+    profile_dir = get_chrome_profile_dir()
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    
+    args = [
+        chrome_path,
+        f"--remote-debugging-port={port}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-extensions",
+        f"--user-data-dir={profile_dir}",
+        "--remote-allow-origins=*",
+    ]
+    
+    if headless:
+        args.append("--headless=new")
+    
+    try:
+        subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        # Wait for Chrome to start
+        time.sleep(3)
+        return True
+    except Exception:
+        return False
+
+
+def get_debugger_url(port: int = CDP_DEFAULT_PORT) -> str | None:
+    """Get the WebSocket debugger URL for Chrome."""
+    try:
+        response = httpx.get(f"http://localhost:{port}/json/version", timeout=5)
+        data = response.json()
+        return data.get("webSocketDebuggerUrl")
+    except Exception:
+        return None
+
+
+def get_pages(port: int = CDP_DEFAULT_PORT) -> list[dict]:
+    """Get list of open pages in Chrome."""
+    try:
+        response = httpx.get(f"http://localhost:{port}/json", timeout=5)
+        return response.json()
+    except Exception:
+        return []
+
+
+def find_or_create_notebooklm_page(port: int = CDP_DEFAULT_PORT) -> dict | None:
+    """Find an existing NotebookLM page or create a new one."""
+    from urllib.parse import quote
+    
+    pages = get_pages(port)
+    
+    # Look for existing NotebookLM page
+    for page in pages:
+        url = page.get("url", "")
+        if "notebooklm.google.com" in url:
+            return page
+    
+    # Create a new page
+    try:
+        encoded_url = quote(NOTEBOOKLM_URL, safe="")
+        response = httpx.put(
+            f"http://localhost:{port}/json/new?{encoded_url}",
+            timeout=15
+        )
+        if response.status_code == 200 and response.text.strip():
+            return response.json()
+        
+        # Fallback: create blank page then navigate
+        response = httpx.put(f"http://localhost:{port}/json/new", timeout=10)
+        if response.status_code == 200 and response.text.strip():
+            page = response.json()
+            ws_url = page.get("webSocketDebuggerUrl")
+            if ws_url:
+                navigate_to_url(ws_url, NOTEBOOKLM_URL)
+            return page
+        
+        return None
+    except Exception:
+        return None
+
+
+def execute_cdp_command(ws_url: str, method: str, params: dict | None = None) -> dict:
+    """Execute a CDP command via WebSocket.
+    
+    Args:
+        ws_url: WebSocket URL for the page
+        method: CDP method name (e.g., "Network.getCookies")
+        params: Optional parameters for the command
+    
+    Returns:
+        The result of the CDP command
+    """
+    try:
+        import websocket
+    except ImportError:
+        raise AuthenticationError(
+            message="websocket-client package not installed",
+            hint="Run 'pip install websocket-client' to install it.",
+        )
+    
+    ws = websocket.create_connection(ws_url, timeout=30)
+    try:
+        command = {
+            "id": 1,
+            "method": method,
+            "params": params or {}
+        }
+        ws.send(json.dumps(command))
+        
+        # Wait for response with matching ID
+        while True:
+            response = json.loads(ws.recv())
+            if response.get("id") == 1:
+                return response.get("result", {})
+    finally:
+        ws.close()
+
+
+def get_page_cookies(ws_url: str) -> dict[str, str]:
+    """Get all cookies for the page via CDP.
+    
+    This is the key function that avoids keychain access!
+    Uses Network.getCookies CDP command instead of decrypting cookies.
+    """
+    result = execute_cdp_command(ws_url, "Network.getCookies")
+    cookies_list = result.get("cookies", [])
+    return {c["name"]: c["value"] for c in cookies_list}
+
+
+def get_page_html(ws_url: str) -> str:
+    """Get the page HTML to extract CSRF token."""
+    execute_cdp_command(ws_url, "Runtime.enable")
+    result = execute_cdp_command(
+        ws_url,
+        "Runtime.evaluate",
+        {"expression": "document.documentElement.outerHTML"}
+    )
+    return result.get("result", {}).get("value", "")
+
+
+def get_current_url(ws_url: str) -> str:
+    """Get the current page URL."""
+    execute_cdp_command(ws_url, "Runtime.enable")
+    result = execute_cdp_command(
+        ws_url,
+        "Runtime.evaluate",
+        {"expression": "window.location.href"}
+    )
+    return result.get("result", {}).get("value", "")
+
+
+def navigate_to_url(ws_url: str, url: str) -> None:
+    """Navigate the page to a URL."""
+    execute_cdp_command(ws_url, "Page.enable")
+    execute_cdp_command(ws_url, "Page.navigate", {"url": url})
+    time.sleep(3)  # Wait for page to load
+
+
+def is_logged_in(url: str) -> bool:
+    """Check login status by URL.
+    
+    If NotebookLM redirects to accounts.google.com, user is not logged in.
+    """
+    if "accounts.google.com" in url:
+        return False
+    if "notebooklm.google.com" in url:
+        return True
+    return False
+
+
+def extract_csrf_token(html: str) -> str:
+    """Extract CSRF token from page HTML."""
+    match = re.search(r'"SNlM0e":"([^"]+)"', html)
+    return match.group(1) if match else ""
+
+
+def extract_session_id(html: str) -> str:
+    """Extract session ID from page HTML."""
+    patterns = [
+        r'"FdrFJe":"(\d+)"',
+        r'f\.sid["\s:=]+["\']?(\d+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def extract_cookies_via_cdp(
+    port: int = CDP_DEFAULT_PORT,
+    auto_launch: bool = True,
+    wait_for_login: bool = True,
+    login_timeout: int = 300,
+) -> dict[str, Any]:
+    """Extract cookies and tokens from Chrome via CDP.
+    
+    This is the main entry point for CDP-based authentication.
+    
+    Args:
+        port: Chrome DevTools port
+        auto_launch: If True, launch Chrome if not running
+        wait_for_login: If True, wait for user to log in
+        login_timeout: Max seconds to wait for login
+    
+    Returns:
+        Dict with cookies, csrf_token, and session_id
+    
+    Raises:
+        AuthenticationError: If extraction fails
+    """
+    # Check if Chrome is running with debugging
+    debugger_url = get_debugger_url(port)
+    
+    if not debugger_url and auto_launch:
+        if is_profile_locked():
+            raise AuthenticationError(
+                message="The NLM auth profile is already in use",
+                hint="Close the previous auth Chrome window and try again.",
+            )
+        
+        if not get_chrome_path():
+            raise AuthenticationError(
+                message="Chrome not found",
+                hint="Install Google Chrome or use 'nlm login --legacy' for browser-cookie3 fallback.",
+            )
+        
+        if not launch_chrome(port):
+            raise AuthenticationError(
+                message="Failed to launch Chrome",
+                hint="Try 'nlm login --legacy' for browser-cookie3 fallback.",
+            )
+        
+        debugger_url = get_debugger_url(port)
+    
+    if not debugger_url:
+        raise AuthenticationError(
+            message=f"Cannot connect to Chrome on port {port}",
+            hint="Use 'nlm login --legacy' for browser-cookie3 fallback.",
+        )
+    
+    # Find or create NotebookLM page
+    page = find_or_create_notebooklm_page(port)
+    if not page:
+        raise AuthenticationError(
+            message="Failed to open NotebookLM page",
+            hint="Try manually navigating to notebooklm.google.com in Chrome.",
+        )
+    
+    ws_url = page.get("webSocketDebuggerUrl")
+    if not ws_url:
+        raise AuthenticationError(
+            message="No WebSocket URL for page",
+            hint="Chrome may need to be restarted.",
+        )
+    
+    # Navigate to NotebookLM if needed
+    current_url = page.get("url", "")
+    if "notebooklm.google.com" not in current_url:
+        navigate_to_url(ws_url, NOTEBOOKLM_URL)
+    
+    # Check login status
+    current_url = get_current_url(ws_url)
+    
+    if not is_logged_in(current_url) and wait_for_login:
+        # Wait for login
+        start_time = time.time()
+        while time.time() - start_time < login_timeout:
+            time.sleep(5)
+            try:
+                current_url = get_current_url(ws_url)
+                if is_logged_in(current_url):
+                    break
+            except Exception:
+                pass
+        
+        if not is_logged_in(current_url):
+            raise AuthenticationError(
+                message="Login timeout",
+                hint="Please log in to NotebookLM in the Chrome window.",
+            )
+    
+    # Extract cookies
+    cookies = get_page_cookies(ws_url)
+    
+    if not cookies:
+        raise AuthenticationError(
+            message="No cookies extracted",
+            hint="Make sure you're fully logged in.",
+        )
+    
+    # Get page HTML for CSRF and session ID
+    html = get_page_html(ws_url)
+    csrf_token = extract_csrf_token(html)
+    session_id = extract_session_id(html)
+    
+    return {
+        "cookies": cookies,
+        "csrf_token": csrf_token,
+        "session_id": session_id,
+    }
