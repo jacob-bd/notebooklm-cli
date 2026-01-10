@@ -1352,12 +1352,20 @@ class NotebookLMClient:
         result = self._call_rpc(RPC.LIST_MIND_MAPS, params, f"/notebook/{notebook_id}")
         
         mindmaps = []
-        if result and isinstance(result, list):
-            for mm_data in result:
-                if isinstance(mm_data, list) and len(mm_data) >= 2:
+        if result and isinstance(result, list) and len(result) > 0:
+            # Structure: [[mindmap_data, ...], timestamp]
+            mm_list = result[0] if isinstance(result[0], list) else []
+            for mm_entry in mm_list:
+                if isinstance(mm_entry, list) and len(mm_entry) >= 2:
+                    mm_id = str(mm_entry[0]) if mm_entry[0] else "unknown"
+                    mm_title = "Untitled Mind Map"
+                    # Title is at mm_entry[1][4] based on debug output
+                    inner = mm_entry[1] if len(mm_entry) > 1 else None
+                    if isinstance(inner, list) and len(inner) > 4 and isinstance(inner[4], str):
+                        mm_title = inner[4]
                     mindmaps.append({
-                        "id": mm_data[0],
-                        "title": mm_data[1] if len(mm_data) > 1 else "Untitled",
+                        "id": mm_id,
+                        "title": mm_title,
                     })
         return mindmaps
     
@@ -1508,8 +1516,23 @@ class NotebookLMClient:
         return None
     
     def get_studio_status(self, notebook_id: str) -> list[dict]:
-        """Get studio artifacts status. Alias for poll_studio_status."""
-        return self.poll_studio_status(notebook_id)
+        """Get studio artifacts status including mind maps."""
+        artifacts = self.poll_studio_status(notebook_id)
+        
+        # Also include mind maps for unified view
+        try:
+            mindmaps = self.list_mindmaps(notebook_id)
+            for mm in mindmaps:
+                artifacts.append({
+                    "artifact_id": mm.get("id", ""),
+                    "title": mm.get("title", "Untitled Mind Map"),
+                    "type": "mindmap",
+                    "status": "completed",  # Mind maps are always complete once saved
+                })
+        except Exception:
+            pass  # Silently skip if mindmaps fail
+        
+        return artifacts
     
     def poll_studio_status(self, notebook_id: str) -> list[dict]:
         """Poll for studio content status."""
