@@ -2,9 +2,28 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any
 
 from nlm.utils.config import get_config_dir
+
+
+class AliasEntry:
+    """Represents an alias with its value and type."""
+    
+    def __init__(self, value: str, alias_type: str = "unknown") -> None:
+        self.value = value
+        self.type = alias_type
+    
+    def to_dict(self) -> dict[str, str]:
+        return {"value": self.value, "type": self.type}
+    
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | str) -> "AliasEntry":
+        """Create from dict or legacy string format."""
+        if isinstance(data, str):
+            # Legacy format: just the value
+            return cls(value=data, alias_type="unknown")
+        return cls(value=data.get("value", ""), alias_type=data.get("type", "unknown"))
 
 
 class AliasManager:
@@ -13,7 +32,7 @@ class AliasManager:
     def __init__(self) -> None:
         self.config_dir = get_config_dir()
         self.aliases_file = self.config_dir / "aliases.json"
-        self._aliases: Dict[str, str] = {}
+        self._aliases: dict[str, AliasEntry] = {}
         self._load()
 
     def _load(self) -> None:
@@ -24,7 +43,12 @@ class AliasManager:
         try:
             content = self.aliases_file.read_text()
             if content:
-                self._aliases = json.loads(content)
+                raw_data = json.loads(content)
+                # Convert to AliasEntry objects (handles legacy format)
+                self._aliases = {
+                    name: AliasEntry.from_dict(data) 
+                    for name, data in raw_data.items()
+                }
         except Exception:
             # On error, start with empty map
             self._aliases = {}
@@ -32,15 +56,21 @@ class AliasManager:
     def _save(self) -> None:
         """Save aliases to disk."""
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.aliases_file.write_text(json.dumps(self._aliases, indent=2))
+        data = {name: entry.to_dict() for name, entry in self._aliases.items()}
+        self.aliases_file.write_text(json.dumps(data, indent=2))
 
-    def set_alias(self, name: str, value: str) -> None:
-        """Set an alias."""
-        self._aliases[name] = value
+    def set_alias(self, name: str, value: str, alias_type: str = "unknown") -> None:
+        """Set an alias with optional type."""
+        self._aliases[name] = AliasEntry(value=value, alias_type=alias_type)
         self._save()
 
-    def get_alias(self, name: str) -> Optional[str]:
+    def get_alias(self, name: str) -> str | None:
         """Get an alias value."""
+        entry = self._aliases.get(name)
+        return entry.value if entry else None
+    
+    def get_entry(self, name: str) -> AliasEntry | None:
+        """Get the full alias entry including type."""
         return self._aliases.get(name)
 
     def delete_alias(self, name: str) -> bool:
@@ -51,8 +81,8 @@ class AliasManager:
             return True
         return False
 
-    def list_aliases(self) -> Dict[str, str]:
-        """List all aliases."""
+    def list_aliases(self) -> dict[str, AliasEntry]:
+        """List all aliases with their types."""
         return self._aliases.copy()
 
     def resolve(self, id_or_alias: str) -> str:
@@ -61,11 +91,12 @@ class AliasManager:
         If the input matches a known alias, return the aliased value.
         Otherwise return the input as-is.
         """
-        return self._aliases.get(id_or_alias, id_or_alias)
+        entry = self._aliases.get(id_or_alias)
+        return entry.value if entry else id_or_alias
 
 
 # Global instance
-_alias_manager: Optional[AliasManager] = None
+_alias_manager: AliasManager | None = None
 
 
 def get_alias_manager() -> AliasManager:
@@ -74,3 +105,37 @@ def get_alias_manager() -> AliasManager:
     if _alias_manager is None:
         _alias_manager = AliasManager()
     return _alias_manager
+
+
+def detect_id_type(value: str, profile: str | None = None) -> str:
+    """
+    Detect the type of an ID by trying API calls.
+    
+    Returns: "notebook", "source", or "unknown"
+    """
+    from nlm.core.client import NotebookLMClient
+    from nlm.core.exceptions import NLMError
+    
+    try:
+        with NotebookLMClient(profile=profile) as client:
+            # Try as notebook ID first (most common)
+            try:
+                notebook = client.get_notebook(value)
+                if notebook:
+                    return "notebook"
+            except NLMError:
+                pass
+            
+            # Try as source ID
+            try:
+                # Sources need a notebook context, but we can try to get source content
+                content = client.get_source_content(value)
+                if content:
+                    return "source"
+            except NLMError:
+                pass
+            
+    except NLMError:
+        pass
+    
+    return "unknown"
