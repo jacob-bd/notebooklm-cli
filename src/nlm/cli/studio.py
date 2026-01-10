@@ -335,32 +335,7 @@ def create_mindmap(
         raise typer.Exit(1)
 
 
-@mindmap_app.command("list")
-def list_mindmaps(
-    notebook_id: str = typer.Argument(..., help="Notebook ID"),
-    json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
-    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
-) -> None:
-    """List mind maps in a notebook."""
-    try:
-        notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            mindmaps = client.list_mindmaps(notebook_id)
-        
-        if not mindmaps:
-            console.print("[dim]No mind maps found.[/dim]")
-            return
-        
-        for mm in mindmaps:
-            if isinstance(mm, dict):
-                console.print(f"  {mm.get('id', 'unknown')}: {mm.get('title', 'Untitled')}")
-            else:
-                console.print(f"  {mm.id}: {mm.title}")
-    except NLMError as e:
-        console.print(f"[red]Error:[/red] {e.message}")
-        if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-        raise typer.Exit(1)
+# Note: mindmap list removed - use 'studio status' which now includes mindmaps
 
 
 # ========== Slides ==========
