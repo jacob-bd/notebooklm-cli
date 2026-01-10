@@ -187,11 +187,13 @@ def research_status(
             sources_found = task.get('sources_found', task.get('source_count', 0))
             report = task.get('report', '')
             sources = task.get('sources', [])
+            all_tasks = task.get('tasks', [])
         else:
             status = getattr(task, 'status', 'unknown')
             sources_found = getattr(task, 'sources_found', 0)
             report = getattr(task, 'report', '')
             sources = getattr(task, 'sources', [])
+            all_tasks = []
         
         status_style = {
             "completed": "green",
@@ -203,11 +205,24 @@ def research_status(
         }.get(status, "")
         
         console.print(f"\n[bold]Research Status:[/bold]")
-        if status_style:
-            console.print(f"  Status: [{status_style}]{status}[/{status_style}]")
+        
+        # Display all tasks if multiple exist
+        if len(all_tasks) > 1:
+            console.print(f"  Tasks found: {len(all_tasks)}")
+            console.print(f"  Overall status: [{status_style}]{status}[/{status_style}]" if status_style else f"  Overall status: {status}")
+            console.print()
+            for i, t in enumerate(all_tasks):
+                t_status = t.get("status", "unknown")
+                t_style = {"completed": "green", "in_progress": "yellow"}.get(t_status, "")
+                console.print(f"  [{i+1}] Task ID: {t.get('task_id', 'unknown')}")
+                console.print(f"      Status: [{t_style}]{t_status}[/{t_style}]" if t_style else f"      Status: {t_status}")
+                console.print(f"      Sources: {t.get('source_count', 0)}")
         else:
-            console.print(f"  Status: {status}")
-        console.print(f"  Sources found: {sources_found}")
+            if status_style:
+                console.print(f"  Status: [{status_style}]{status}[/{status_style}]")
+            else:
+                console.print(f"  Status: {status}")
+            console.print(f"  Sources found: {sources_found}")
         
         if report and not compact:
             console.print(f"\n[bold]Report:[/bold]")

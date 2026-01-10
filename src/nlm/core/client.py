@@ -1643,18 +1643,25 @@ class NotebookLMClient:
         return None
     
     def poll_research(self, notebook_id: str, target_task_id: str | None = None) -> dict | None:
-        """Poll for research results."""
+        """Poll for research results.
+        
+        Returns dict with:
+        - tasks: list of all research tasks found
+        - status: overall status (completed if any completed, in_progress if any running, no_research otherwise)
+        
+        Each task has: task_id, status, sources, source_count
+        """
         params = [None, None, notebook_id]
         result = self._call_rpc(RPC.POLL_RESEARCH, params, f"/notebook/{notebook_id}")
         
         if not result or not isinstance(result, list):
-            return {"status": "no_research", "message": "No active research found"}
+            return {"status": "no_research", "message": "No active research found", "tasks": []}
         
         # Parse research results (simplified)
         if isinstance(result[0], list) and len(result[0]) > 0:
             result = result[0]
         
-        found_task = None
+        all_tasks = []
         
         for task_data in result:
             if not isinstance(task_data, list) or len(task_data) < 2:
@@ -1684,26 +1691,40 @@ class NotebookLMClient:
                         "title": src[1] if len(src) > 1 else "",
                     })
             
-            found_task = {
+            task_dict = {
                 "task_id": task_id,
                 "status": "completed" if status_code == 2 else "in_progress",
                 "sources": sources,
                 "source_count": len(sources),
             }
             
-            # If we found our specific task, return specific result
+            # If we found our specific task, return it directly (backward compat)
             if target_task_id:
-                return found_task
+                return task_dict
             
-            # If no specific task requested, return the first one found (default behavior)
-            # But let's prefer 'in_progress' or 'completed' over others if possible,
-            # for now, just return the first valid one to maintain compat
-            return found_task
+            all_tasks.append(task_dict)
         
         if target_task_id:
-             return {"status": "no_research", "message": f"Task {target_task_id} not found"}
-             
-        return {"status": "no_research", "message": "No active research found"}
+            return {"status": "no_research", "message": f"Task {target_task_id} not found", "tasks": []}
+        
+        if not all_tasks:
+            return {"status": "no_research", "message": "No active research found", "tasks": []}
+        
+        # Determine overall status
+        has_completed = any(t["status"] == "completed" for t in all_tasks)
+        has_in_progress = any(t["status"] == "in_progress" for t in all_tasks)
+        
+        overall_status = "completed" if has_completed else ("in_progress" if has_in_progress else "no_research")
+        
+        # For backward compat, also include top-level fields from first task
+        first_task = all_tasks[0]
+        return {
+            "status": overall_status,
+            "tasks": all_tasks,
+            "task_id": first_task["task_id"],
+            "sources": first_task["sources"],
+            "source_count": first_task["source_count"],
+        }
     
     def import_research_sources(
         self,
