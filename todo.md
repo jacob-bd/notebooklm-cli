@@ -10,6 +10,8 @@
 - [x] **Comprehensive `--ai` documentation**: 378 lines of verified CLI reference.
 - [x] **PyPI Publishing**: Published as `notebooklm-cli` with automated GitHub Actions workflow.
 - [x] **Legacy login removed**: `--legacy` mode used browser-cookie3 which reads stale cookies from Chrome's SQLite. CDP is the only reliable method.
+- [x] **Branding**: Added a new futuristic/cyberpunk logo to the README.
+- [x] **Documentation**: Complete README rewrite with comprehensive installation, commands, AI integration, aliases, and proper docs links.
 
 ## 🔴 Open Items
 

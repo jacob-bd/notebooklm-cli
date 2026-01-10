@@ -1,57 +1,283 @@
-# NLM - NotebookLM CLI
+<div align="center">
+  <img src="assets/logo.png" alt="NotebookLM CLI Logo" width="600">
+  <h1>NLM - NotebookLM CLI</h1>
+  <p><strong>A powerful command-line interface for Google NotebookLM</strong></p>
 
-A powerful command-line interface for Google NotebookLM.
+  [![PyPI version](https://img.shields.io/pypi/v/notebooklm-cli.svg)](https://pypi.org/project/notebooklm-cli/)
+  [![Python](https://img.shields.io/pypi/pyversions/notebooklm-cli.svg)](https://pypi.org/project/notebooklm-cli/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+</div>
 
-## Installation
+---
+
+## ✨ Features
+
+- **Full NotebookLM API Coverage** — Notebooks, sources, audio podcasts, reports, quizzes, flashcards, mind maps, slides, infographics, videos, and data tables
+- **Seamless Authentication** — Uses Chrome DevTools Protocol for reliable, automatic cookie extraction
+- **AI-Teachable** — Run `nlm --ai` to output comprehensive documentation that AI assistants can consume
+- **Alias System** — Create memorable shortcuts for long UUIDs (e.g., `myproject` instead of `abc123-def456-...`)
+- **Multiple Output Formats** — Rich tables, JSON, quiet (IDs only), or full details
+- **Profile Support** — Manage multiple Google accounts with named profiles
+- **Research Integration** — Deep web search or Google Drive search to discover and import sources
+
+---
+
+## 📦 Installation
+
+Install from PyPI using your preferred package manager:
 
 ```bash
-pip install nlm
-# or
-pipx install nlm
-# or
-uv tool install nlm
+# Using pip
+pip install notebooklm-cli
+
+# Using pipx (recommended for CLI tools)
+pipx install notebooklm-cli
+
+# Using uv
+uv tool install notebooklm-cli
 ```
 
-## Quick Start
+**Requirements:**
+- Python 3.10+
+- Google Chrome (for authentication)
+
+---
+
+## 🚀 Quick Start
+
+### 1. Authenticate
 
 ```bash
-# Authenticate
 nlm login
+```
 
-# List notebooks
+This launches Chrome, navigates to NotebookLM, and automatically extracts your session cookies. You'll need to log in to your Google account if not already signed in.
+
+### 2. List Your Notebooks
+
+```bash
 nlm notebook list
+```
 
-# Create a notebook and add sources
+### 3. Create a Notebook and Add Sources
+
+```bash
+# Create a new notebook
 nlm notebook create "My Research"
-nlm source add <notebook-id> --url "https://example.com"
+# Output: Created notebook: abc123-def456-...
 
-# Use Aliases for easier management
-nlm alias set my-nb <notebook-id>
-nlm source list my-nb
+# Add a URL source
+nlm source add abc123-def456 --url "https://example.com/article"
 
-# Sync Drive sources
-nlm source stale my-nb
-nlm source sync my-nb
+# Add a YouTube video
+nlm source add abc123-def456 --url "https://youtube.com/watch?v=..."
 
-# Generate a podcast
-nlm audio create <notebook-id>
+# Add pasted text
+nlm source add abc123-def456 --text "Your content here" --title "My Notes"
+```
 
-# Get AI-friendly documentation
+### 4. Generate a Podcast
+
+```bash
+nlm audio create abc123-def456 --confirm
+```
+
+### 5. Check Generation Status
+
+```bash
+nlm studio status abc123-def456
+```
+
+---
+
+## 🏷️ Aliases (UUID Shortcuts)
+
+Tired of typing long UUIDs? Create aliases:
+
+```bash
+# Set an alias
+nlm alias set myproject abc123-def456-...
+
+# Now use the alias anywhere
+nlm notebook get myproject
+nlm source list myproject
+nlm audio create myproject --confirm
+
+# Manage aliases
+nlm alias list              # List all aliases
+nlm alias get myproject     # Resolve to UUID
+nlm alias delete myproject  # Remove alias
+```
+
+---
+
+## 🤖 AI Integration
+
+The `--ai` flag outputs comprehensive, structured documentation designed for AI assistants:
+
+```bash
 nlm --ai
 ```
 
-## Features
+This prints a 380+ line guide covering:
+- All commands with exact syntax
+- Authentication flow
+- Error handling
+- Complete task sequences
+- Tips for automation
 
-- **Full NotebookLM API coverage** - notebooks, sources, audio, reports, quizzes, and more
-- **Cross-browser authentication** - Chrome, Firefox, Safari, Edge, Brave
-- **Multiple output formats** - tables, JSON, compact
-- **AI-teachable** - `nlm --ai` outputs documentation for AI assistants
-- **Profile support** - manage multiple accounts
+**Use case:** Paste the output of `nlm --ai` into your AI assistant's context to teach it how to use the CLI on your behalf.
 
-## Documentation
+---
 
-See the [full documentation](https://github.com/jacob-bd/notebooklm-cli) for complete usage guide.
+## 📚 Command Reference
 
-## License
+### Core Commands
 
-MIT
+| Command | Description |
+|---------|-------------|
+| `nlm login` | Authenticate with NotebookLM (opens Chrome) |
+| `nlm auth status` | Check if current session is valid |
+| `nlm notebook list` | List all notebooks |
+| `nlm notebook create "Title"` | Create a new notebook |
+| `nlm notebook get <id>` | Get notebook details |
+| `nlm notebook describe <id>` | Get AI-generated summary |
+| `nlm notebook query <id> "question"` | Chat with your sources |
+| `nlm notebook delete <id> --confirm` | Delete a notebook |
+
+### Source Management
+
+| Command | Description |
+|---------|-------------|
+| `nlm source list <notebook-id>` | List sources in a notebook |
+| `nlm source add <id> --url "..."` | Add URL or YouTube source |
+| `nlm source add <id> --text "..." --title "..."` | Add pasted text |
+| `nlm source add <id> --drive <doc-id>` | Add Google Drive document |
+| `nlm source describe <source-id>` | Get AI summary of source |
+| `nlm source content <source-id>` | Get raw text content |
+| `nlm source stale <notebook-id>` | List outdated Drive sources |
+| `nlm source sync <notebook-id> --confirm` | Sync Drive sources |
+
+### Research (Discover New Sources)
+
+| Command | Description |
+|---------|-------------|
+| `nlm research start "query" --notebook-id <id>` | Start web search (~30s) |
+| `nlm research start "query" --notebook-id <id> --mode deep` | Deep research (~5min) |
+| `nlm research start "query" --notebook-id <id> --source drive` | Search Google Drive |
+| `nlm research status <notebook-id>` | Check research progress |
+| `nlm research import <notebook-id> <task-id>` | Import discovered sources |
+
+### Content Generation
+
+All generation commands require `--confirm` (or `-y`) to execute:
+
+| Command | Description |
+|---------|-------------|
+| `nlm audio create <id> --confirm` | Generate podcast/audio overview |
+| `nlm report create <id> --confirm` | Generate briefing doc or study guide |
+| `nlm quiz create <id> --confirm` | Generate quiz questions |
+| `nlm flashcards create <id> --confirm` | Generate flashcards |
+| `nlm mindmap create <id> --confirm` | Generate mind map |
+| `nlm slides create <id> --confirm` | Generate slide deck |
+| `nlm infographic create <id> --confirm` | Generate infographic |
+| `nlm video create <id> --confirm` | Generate video overview |
+| `nlm data-table create <id> "description" --confirm` | Extract data as table |
+
+### Studio (Artifact Management)
+
+| Command | Description |
+|---------|-------------|
+| `nlm studio status <notebook-id>` | List all generated artifacts |
+| `nlm studio delete <notebook-id> <artifact-id> --confirm` | Delete an artifact |
+
+---
+
+## 🎛️ Output Formats
+
+Most list commands support multiple output formats:
+
+```bash
+nlm notebook list              # Rich table (default)
+nlm notebook list --json       # JSON output
+nlm notebook list --quiet      # IDs only (for scripting)
+nlm notebook list --title      # "ID: Title" format
+nlm notebook list --full       # All columns
+```
+
+---
+
+## 👤 Profiles (Multiple Accounts)
+
+Manage multiple Google accounts with named profiles:
+
+```bash
+# Login to a specific profile
+nlm login --profile work
+nlm login --profile personal
+
+# Use a profile for commands
+nlm notebook list --profile work
+
+# List all profiles
+nlm auth list
+
+# Delete a profile
+nlm auth delete work --confirm
+```
+
+---
+
+## ⚠️ Session Lifetime
+
+NotebookLM sessions typically last **~20 minutes**. If commands start failing with authentication errors, simply re-run:
+
+```bash
+nlm login
+```
+
+---
+
+## 🔧 Troubleshooting
+
+| Error | Solution |
+|-------|----------|
+| "Cookies have expired" | Run `nlm login` |
+| "Notebook not found" | Check ID with `nlm notebook list` |
+| "Research already in progress" | Use `--force` flag or import existing results |
+| Chrome doesn't launch | Ensure Chrome is installed and in your PATH |
+
+---
+
+## 📖 Documentation
+
+For detailed technical documentation on the internal API and advanced usage, see the [`docs/`](docs/) folder:
+
+- [CLI Test Plan](docs/CLI_TEST_PLAN.md) — End-to-end testing procedures
+- [Technical Deep Dive](docs/TECHNICAL_DEEP_DIVE.md) — Internal API details
+
+For AI assistants, run `nlm --ai` to get the full command reference.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request.
+
+```bash
+# Clone the repo
+git clone https://github.com/jacob-bd/notebooklm-cli.git
+cd notebooklm-cli
+
+# Install in development mode
+uv pip install -e ".[dev]"
+
+# Run tests
+uv run pytest
+```
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](LICENSE) for details.
