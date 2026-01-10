@@ -246,6 +246,7 @@ class DriveSource:
     original_type: str | None = None
 
 
+
 def _parse_timestamp(ts_array: list | None) -> str | None:
     """Convert [seconds, nanoseconds] timestamp array to ISO format string."""
     if not ts_array or not isinstance(ts_array, list) or len(ts_array) < 1:
@@ -260,9 +261,74 @@ def _parse_timestamp(ts_array: list | None) -> str | None:
         return None
 
 
+def _parse_notebook_data(nb_data: list) -> Notebook | None:
+    """Parse raw notebook data array into a Notebook object."""
+    if not isinstance(nb_data, list) or len(nb_data) < 3:
+        return None
+    
+    title = nb_data[0] if isinstance(nb_data[0], str) else "Untitled"
+    sources_data = nb_data[1] if len(nb_data) > 1 else []
+    notebook_id = nb_data[2] if len(nb_data) > 2 else None
+    
+    if not notebook_id:
+        return None
+    
+    is_owned = True
+    is_shared = False
+    created_at = None
+    modified_at = None
+    
+    if len(nb_data) > 5 and isinstance(nb_data[5], list) and len(nb_data[5]) > 0:
+        metadata = nb_data[5]
+        is_owned = metadata[0] == OWNERSHIP_MINE
+        if len(metadata) > 1:
+            is_shared = bool(metadata[1])
+        if len(metadata) > 5:
+            modified_at = _parse_timestamp(metadata[5])
+        if len(metadata) > 8:
+            created_at = _parse_timestamp(metadata[8])
+    
+    sources = []
+    if isinstance(sources_data, list):
+        for src in sources_data:
+            if isinstance(src, list) and len(src) >= 2:
+                src_ids = src[0] if src[0] else []
+                src_title = src[1] if len(src) > 1 else "Untitled"
+                src_id = src_ids[0] if isinstance(src_ids, list) and src_ids else src_ids
+                
+                # Extract source type from metadata
+                source_type = "unknown"
+                if len(src) > 2 and isinstance(src[2], list):
+                    metadata = src[2]
+                    if len(metadata) > 4:
+                        type_code = metadata[4]
+                        type_map = {
+                            1: "drive",
+                            4: "text",
+                            5: "url",
+                            8: "file",
+                            9: "youtube",
+                        }
+                        source_type = type_map.get(type_code, "unknown")
+                
+                sources.append({"id": src_id, "title": src_title, "type": source_type})
+    
+    return Notebook(
+        id=notebook_id,
+        title=title,
+        source_count=len(sources),
+        sources=sources,
+        is_owned=is_owned,
+        is_shared=is_shared,
+        created_at=created_at,
+        modified_at=modified_at,
+    )
+
+
 # ============================================================================
 # Client class (matching MCP signatures)
 # ============================================================================
+
 
 class NotebookLMClient:
     """Client for interacting with the NotebookLM API.
@@ -554,56 +620,25 @@ class NotebookLMClient:
             notebook_list = result[0] if result and isinstance(result[0], list) else result
             
             for nb_data in notebook_list:
-                if isinstance(nb_data, list) and len(nb_data) >= 3:
-                    title = nb_data[0] if isinstance(nb_data[0], str) else "Untitled"
-                    sources_data = nb_data[1] if len(nb_data) > 1 else []
-                    notebook_id = nb_data[2] if len(nb_data) > 2 else None
-                    
-                    is_owned = True
-                    is_shared = False
-                    created_at = None
-                    modified_at = None
-                    
-                    if len(nb_data) > 5 and isinstance(nb_data[5], list) and len(nb_data[5]) > 0:
-                        metadata = nb_data[5]
-                        is_owned = metadata[0] == OWNERSHIP_MINE
-                        if len(metadata) > 1:
-                            is_shared = bool(metadata[1])
-                        if len(metadata) > 5:
-                            modified_at = _parse_timestamp(metadata[5])
-                        if len(metadata) > 8:
-                            created_at = _parse_timestamp(metadata[8])
-                    
-                    sources = []
-                    if isinstance(sources_data, list):
-                        for src in sources_data:
-                            if isinstance(src, list) and len(src) >= 2:
-                                src_ids = src[0] if src[0] else []
-                                src_title = src[1] if len(src) > 1 else "Untitled"
-                                src_id = src_ids[0] if isinstance(src_ids, list) and src_ids else src_ids
-                                sources.append({"id": src_id, "title": src_title})
-                    
-                    if notebook_id:
-                        notebooks.append(Notebook(
-                            id=notebook_id,
-                            title=title,
-                            source_count=len(sources),
-                            sources=sources,
-                            is_owned=is_owned,
-                            is_shared=is_shared,
-                            created_at=created_at,
-                            modified_at=modified_at,
-                        ))
+                notebook = _parse_notebook_data(nb_data)
+                if notebook:
+                    notebooks.append(notebook)
         
         return notebooks
     
-    def get_notebook(self, notebook_id: str) -> dict | None:
+    def get_notebook(self, notebook_id: str) -> Notebook | None:
         """Get notebook details."""
-        return self._call_rpc(
+        result = self._call_rpc(
             RPC.GET_NOTEBOOK,
             [notebook_id, None, [2], None, 0],
             f"/notebook/{notebook_id}",
         )
+        
+        # Result is [[notebook_data]] - extract the inner list
+        if result and isinstance(result, list) and len(result) > 0:
+            nb_data = result[0]
+            return _parse_notebook_data(nb_data)
+        return None
     
     def create_notebook(self, title: str = "") -> Notebook | None:
         """Create a new notebook."""
@@ -664,64 +699,20 @@ class NotebookLMClient:
     
     def list_sources(self, notebook_id: str) -> list[dict]:
         """List all sources in a notebook."""
-        notebook_data = self.get_notebook(notebook_id)
-        sources = []
+        notebook = self.get_notebook(notebook_id)
         
-        if notebook_data and isinstance(notebook_data, list):
-            try:
-                # Navigate the nested structure to find sources
-                if len(notebook_data) > 0 and isinstance(notebook_data[0], list):
-                    notebook_info = notebook_data[0]
-                    if len(notebook_info) > 1 and isinstance(notebook_info[1], list):
-                        for source_data in notebook_info[1]:
-                            if isinstance(source_data, list) and len(source_data) >= 2:
-                                # ID is nested: source_data[0][0]
-                                source_id_data = source_data[0]
-                                source_id = source_id_data[0] if isinstance(source_id_data, list) and len(source_id_data) > 0 else str(source_id_data)
-                                
-                                # Title is at index 1
-                                title = source_data[1] if len(source_data) > 1 else "Untitled"
-                                if not isinstance(title, str):
-                                    title = "Untitled"
-                                
-                                # Type might be in metadata, default to "unknown"
-                                source_type = "unknown"
-                                if len(source_data) > 2 and isinstance(source_data[2], list):
-                                    # Try to extract type from metadata
-                                    metadata = source_data[2]
-                                    if len(metadata) > 4:
-                                        type_code = metadata[4]
-                                        # Updated mapping based on observation
-                                        type_map = {
-                                            4: "text",
-                                            5: "url", 
-                                            9: "youtube",
-                                            # Preserving old guesses just in case, but 4,5,9 are verified
-                                            1: "url_legacy",
-                                            2: "text_legacy",
-                                            3: "drive",
-                                            8: "file",  # Uploaded file (markdown, etc)
-                                        }
-                                        source_type = type_map.get(type_code, "unknown")
-                                        
-                                        # Refine URL vs Drive if both use 5 (unconfirmed, but safe check)
-                                        if type_code == 5:
-                                            # Check index 7 for URL
-                                            if len(metadata) > 7 and isinstance(metadata[7], list) and metadata[7]:
-                                                 # It's a web URL
-                                                 source_type = "url"
-                                            # If we see Drive patterns later we can add them here
-                                
-                                if source_id:
-                                    sources.append({
-                                        "id": source_id,
-                                        "title": title,
-                                        "type": source_type,
-                                    })
-            except (IndexError, TypeError):
-                pass
+        if notebook and notebook.sources:
+            # Add 'type' field if missing (sources from Notebook don't have type)
+            sources = []
+            for src in notebook.sources:
+                sources.append({
+                    "id": src.get("id", ""),
+                    "title": src.get("title", "Untitled"),
+                    "type": src.get("type", "unknown"),
+                })
+            return sources
         
-        return sources
+        return []
     
     def add_source_url(self, notebook_id: str, url: str) -> dict | None:
         """Add a URL source to a notebook."""

@@ -108,9 +108,9 @@ class TableFormatter(Formatter):
             self.console.print("[dim]No notebooks found.[/dim]")
             return
 
-        table = Table(show_header=True, header_style="bold", expand=True)
-        table.add_column("ID", style="cyan", no_wrap=True)
-        table.add_column("Title", no_wrap=True, overflow="ellipsis", max_width=50)
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("ID", style="cyan", min_width=36, no_wrap=True)
+        table.add_column("Title", overflow="ellipsis", max_width=50)
         table.add_column("Src", justify="right", width=4)
         table.add_column("Updated", no_wrap=True, width=10)
         
@@ -157,7 +157,7 @@ class TableFormatter(Formatter):
             return
 
         table = Table(show_header=True, header_style="bold")
-        table.add_column("ID", style="cyan")
+        table.add_column("ID", style="cyan", min_width=36, no_wrap=True)
         table.add_column("Title")
         table.add_column("Type")
         
@@ -173,17 +173,15 @@ class TableFormatter(Formatter):
                 src_type = src.get('type', 'unknown')
                 src_url = src.get('url', '')
                 is_stale = src.get('is_stale', False)
-                short_id = src_id[:12] + '...' if len(src_id) > 12 else src_id
             else:
                 src_id = str(src.id)
                 src_title = src.title
                 src_type = src.type
                 src_url = getattr(src, 'url', '') or ''
                 is_stale = getattr(src, 'is_stale', False)
-                short_id = src.short_id if hasattr(src, 'short_id') else src_id[:12] + '...'
             
             row = [
-                short_id,
+                src_id,
                 src_title[:40] + '...' if len(src_title) > 40 else src_title,
                 src_type,
             ]
@@ -206,7 +204,7 @@ class TableFormatter(Formatter):
             return
 
         table = Table(show_header=True, header_style="bold")
-        table.add_column("ID", style="cyan")
+        table.add_column("ID", style="cyan", min_width=36, no_wrap=True)
         table.add_column("Type")
         table.add_column("Status")
         
@@ -222,14 +220,12 @@ class TableFormatter(Formatter):
                 art_status = art.get('status', 'unknown')
                 art_title = art.get('title', '')
                 art_url = art.get('url', '')
-                short_id = art_id[:12] + '...' if len(str(art_id)) > 12 else str(art_id)
             else:
                 art_id = str(art.id)
                 art_type = art.type
                 art_status = art.status
                 art_title = getattr(art, 'title', '')
                 art_url = getattr(art, 'url', '')
-                short_id = art.short_id if hasattr(art, 'short_id') else art_id[:12] + '...'
             
             status_style = {
                 'completed': 'green',
@@ -239,7 +235,7 @@ class TableFormatter(Formatter):
             }.get(art_status, '')
             
             row = [
-                short_id,
+                art_id,
                 art_type,
                 f'[{status_style}]{art_status}[/{status_style}]' if status_style else art_status,
             ]
@@ -261,7 +257,16 @@ class TableFormatter(Formatter):
             data = {"value": item}
         
         for key, value in data.items():
-            self.console.print(f"  [cyan]{key}:[/cyan] {value}")
+            # Special handling for sources list
+            if key == "sources" and isinstance(value, list):
+                self.console.print(f"  [cyan]{key}:[/cyan]")
+                for src in value:
+                    if isinstance(src, dict):
+                        self.console.print(f"    • {src.get('title', 'Untitled')} [dim]({src.get('id', '')})[/dim]")
+                    else:
+                        self.console.print(f"    • {src}")
+            else:
+                self.console.print(f"  [cyan]{key}:[/cyan] {value}")
 
 
 class JsonFormatter(Formatter):
