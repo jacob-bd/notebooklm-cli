@@ -545,6 +545,15 @@ class NotebookLMClient:
                 for item in chunk:
                     if isinstance(item, list) and len(item) >= 3:
                         if item[0] == "wrb.fr" and item[1] == rpc_id:
+                            # Check for generic error signature (e.g. auth expired)
+                            # Signature: ["wrb.fr", "RPC_ID", null, null, null, [16], "generic"]
+                            if len(item) > 6 and item[6] == "generic" and isinstance(item[5], list) and 16 in item[5]:
+                                from nlm.core.exceptions import AuthenticationError
+                                raise AuthenticationError(
+                                    message="Unable to fetch data - authentication may have expired (Code 16)",
+                                    hint="Run 'nlm login' to re-authenticate."
+                                )
+
                             result_str = item[2]
                             if isinstance(result_str, str):
                                 try:
@@ -572,6 +581,7 @@ class NotebookLMClient:
             else:
                 response = client.post(url, content=body)
             
+            import sys
             # Check for auth-related HTTP errors
             if response.status_code in (401, 403):
                 from nlm.core.exceptions import AuthenticationError
