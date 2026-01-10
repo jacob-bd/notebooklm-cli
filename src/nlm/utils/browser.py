@@ -1,9 +1,8 @@
-"""Browser cookie extraction utilities."""
+"""Browser cookie utilities."""
 
 import json
 import re
 from pathlib import Path
-from typing import Any
 
 from nlm.core.exceptions import AuthenticationError
 
@@ -11,120 +10,6 @@ from nlm.core.exceptions import AuthenticationError
 # NotebookLM domain for cookie filtering
 NOTEBOOKLM_DOMAIN = ".google.com"
 NOTEBOOKLM_URL = "https://notebooklm.google.com"
-
-
-def extract_cookies(
-    method: str = "cdp",
-    browser: str | None = None,
-    cdp_port: int = 9222,
-) -> dict[str, str]:
-    """
-    Extract NotebookLM cookies using the specified method.
-    
-    Args:
-        method: "cdp" (default, no keychain prompt) or "legacy" (browser-cookie3)
-        browser: Browser name for legacy mode (chrome, firefox, etc.)
-        cdp_port: Port for CDP connection
-    
-    Returns:
-        Dictionary of cookie name -> value.
-    
-    Raises:
-        AuthenticationError: If cookies cannot be extracted.
-    """
-    if method == "cdp":
-        try:
-            from nlm.utils.cdp import extract_cookies_via_cdp
-            result = extract_cookies_via_cdp(port=cdp_port)
-            return result["cookies"]
-        except AuthenticationError:
-            raise
-        except Exception as e:
-            raise AuthenticationError(
-                message=f"CDP extraction failed: {e}",
-                hint="Try 'nlm login --legacy' for browser-cookie3 fallback.",
-            ) from e
-    elif method == "legacy":
-        return extract_cookies_from_browser(browser)
-    else:
-        raise AuthenticationError(
-            message=f"Unknown extraction method: {method}",
-            hint="Use 'cdp' or 'legacy'.",
-        )
-
-
-def extract_cookies_from_browser(browser: str | None = None) -> dict[str, str]:
-    """
-    Extract NotebookLM cookies from browser.
-    
-    Args:
-        browser: Browser name (chrome, firefox, safari, edge, brave) or None for auto-detect.
-    
-    Returns:
-        Dictionary of cookie name -> value.
-    
-    Raises:
-        AuthenticationError: If cookies cannot be extracted.
-    """
-    try:
-        import browser_cookie3
-    except ImportError as e:
-        raise AuthenticationError(
-            message="browser-cookie3 package not installed",
-            hint="Run 'pip install browser-cookie3' to install it.",
-        ) from e
-    
-    # Map browser names to browser_cookie3 functions
-    browser_funcs = {
-        "chrome": browser_cookie3.chrome,
-        "firefox": browser_cookie3.firefox,
-        "safari": browser_cookie3.safari,
-        "edge": browser_cookie3.edge,
-        "brave": browser_cookie3.brave,
-        "opera": browser_cookie3.opera,
-        "chromium": browser_cookie3.chromium,
-    }
-    
-    cookies: dict[str, str] = {}
-    
-    if browser:
-        # Use specific browser
-        browser_lower = browser.lower()
-        if browser_lower not in browser_funcs:
-            raise AuthenticationError(
-                message=f"Unsupported browser: {browser}",
-                hint=f"Supported browsers: {', '.join(browser_funcs.keys())}",
-            )
-        try:
-            cj = browser_funcs[browser_lower](domain_name=NOTEBOOKLM_DOMAIN)
-            cookies = {c.name: c.value for c in cj if c.value}
-        except Exception as e:
-            raise AuthenticationError(
-                message=f"Failed to extract cookies from {browser}: {e}",
-                hint="Make sure the browser is installed and you're logged into NotebookLM.",
-            ) from e
-    else:
-        # Auto-detect: try browsers in order of popularity
-        browser_order = ["chrome", "firefox", "edge", "brave", "safari", "opera", "chromium"]
-        errors = []
-        
-        for browser_name in browser_order:
-            try:
-                cj = browser_funcs[browser_name](domain_name=NOTEBOOKLM_DOMAIN)
-                cookies = {c.name: c.value for c in cj if c.value}
-                if cookies:
-                    break
-            except Exception as e:
-                errors.append(f"{browser_name}: {e}")
-                continue
-        
-        if not cookies:
-            raise AuthenticationError(
-                message="Could not extract cookies from any browser",
-                hint="Make sure you're logged into NotebookLM in your browser, then try again.",
-            )
-    
-    return cookies
 
 
 def parse_cookies_from_file(file_path: str | Path) -> dict[str, str]:

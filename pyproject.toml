@@ -27,10 +27,9 @@ dependencies = [
     "typer>=0.9.0",
     "httpx>=0.25.0",
     "rich>=13.0.0",
-    "browser-cookie3>=0.19.0",  # Legacy fallback for --legacy flag
     "pydantic>=2.0.0",
     "platformdirs>=4.0.0",
-    "websocket-client>=1.6.0",  # For CDP cookie extraction (default method)
+    "websocket-client>=1.6.0",  # For CDP cookie extraction
 ]
 
 [project.optional-dependencies]

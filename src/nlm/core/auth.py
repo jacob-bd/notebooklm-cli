@@ -8,7 +8,6 @@ from typing import Any
 from nlm.core.exceptions import AuthenticationError, ProfileNotFoundError
 from nlm.utils.browser import (
     cookies_to_header,
-    extract_cookies_from_browser,
     parse_cookies_from_file,
     validate_notebooklm_cookies,
 )
@@ -194,26 +193,6 @@ class AuthManager:
         if not profiles_dir.exists():
             return []
         return [d.name for d in profiles_dir.iterdir() if d.is_dir()]
-
-    def login_with_browser(self, browser: str | None = None) -> Profile:
-        """
-        Extract cookies from browser and save to profile.
-        
-        Args:
-            browser: Browser name or None for auto-detect.
-        
-        Returns:
-            The saved profile.
-        """
-        cookies = extract_cookies_from_browser(browser)
-        
-        if not validate_notebooklm_cookies(cookies):
-            raise AuthenticationError(
-                message="Extracted cookies don't appear to be valid for NotebookLM",
-                hint="Make sure you're logged into NotebookLM in your browser.",
-            )
-        
-        return self.save_profile(cookies)
 
     def login_with_file(self, file_path: str | Path) -> Profile:
         """

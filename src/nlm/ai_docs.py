@@ -100,7 +100,6 @@ nlm alias delete myproject        # Remove
 ```bash
 nlm login                              # Authenticate (opens browser)
 nlm login --profile work               # Named profile
-nlm login --legacy                     # Fallback extraction method
 nlm login --manual --file <path>       # Import cookies from file
 nlm login --check                      # Only check if auth valid
 

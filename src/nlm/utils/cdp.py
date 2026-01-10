@@ -303,13 +303,13 @@ def extract_cookies_via_cdp(
         if not get_chrome_path():
             raise AuthenticationError(
                 message="Chrome not found",
-                hint="Install Google Chrome or use 'nlm login --legacy' for browser-cookie3 fallback.",
+                hint="Install Google Chrome or use 'nlm login --manual' to import cookies from a file.",
             )
         
         if not launch_chrome(port):
             raise AuthenticationError(
                 message="Failed to launch Chrome",
-                hint="Try 'nlm login --legacy' for browser-cookie3 fallback.",
+                hint="Try 'nlm login --manual' to import cookies from a file.",
             )
         
         debugger_url = get_debugger_url(port)
@@ -317,7 +317,7 @@ def extract_cookies_via_cdp(
     if not debugger_url:
         raise AuthenticationError(
             message=f"Cannot connect to Chrome on port {port}",
-            hint="Use 'nlm login --legacy' for browser-cookie3 fallback.",
+            hint="Use 'nlm login --manual' to import cookies from a file.",
         )
     
     # Find or create NotebookLM page

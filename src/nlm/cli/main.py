@@ -60,14 +60,6 @@ app.add_typer(auth_app, name="auth", help="Authentication status")
 
 @app.command("login")
 def login(
-    legacy: bool = typer.Option(
-        False, "--legacy", "-l",
-        help="Use browser-cookie3 extraction (may require keychain access)",
-    ),
-    browser: Optional[str] = typer.Option(
-        None, "--browser", "-b",
-        help="Browser for --legacy mode (chrome, firefox, safari, edge, brave)",
-    ),
     manual: bool = typer.Option(
         False, "--manual", "-m",
         help="Manually provide cookies from a file",
@@ -88,8 +80,7 @@ def login(
     """
     Authenticate with NotebookLM.
     
-    Default: Uses Chrome DevTools Protocol (no keychain access needed).
-    Use --legacy for browser-cookie3 fallback if CDP fails.
+    Default: Uses Chrome DevTools Protocol to extract cookies automatically.
     Use --manual to import cookies from a file.
     """
     from nlm.core.auth import AuthManager
@@ -148,35 +139,9 @@ def login(
             raise typer.Exit(1)
         return
     
-    if legacy:
-        # Legacy mode - browser-cookie3 (may trigger keychain prompt)
-        import webbrowser
-        
-        console.print("[yellow]Using legacy browser-cookie3 extraction...[/yellow]")
-        console.print("[dim]Note: This may prompt for keychain access on macOS.[/dim]\n")
-        
-        console.print("Opening NotebookLM in your browser...")
-        webbrowser.open("https://notebooklm.google.com")
-        
-        console.print("\n[bold]Please log in to your Google account.[/bold]")
-        typer.confirm("Press ENTER when logged in, or Ctrl+C to cancel", default=True)
-        
-        console.print("\nExtracting cookies...")
-        try:
-            profile_obj = auth.login_with_browser(browser)
-            console.print(f"\n[green]✓[/green] Successfully authenticated!")
-            console.print(f"  Profile saved: {profile}")
-            console.print(f"  Credentials saved to: {auth.profile_dir}")
-        except NLMError as e:
-            console.print(f"\n[red]Error:[/red] {e.message}")
-            if e.hint:
-                console.print(f"\n[dim]Hint: {e.hint}[/dim]")
-            raise typer.Exit(1)
-        return
-    
     # Default: CDP mode - Chrome DevTools Protocol
     console.print("[bold]Launching Chrome for authentication...[/bold]")
-    console.print("[dim]Using Chrome DevTools Protocol (no keychain access needed)[/dim]\n")
+    console.print("[dim]Using Chrome DevTools Protocol[/dim]\n")
     
     try:
         from nlm.utils.cdp import extract_cookies_via_cdp, extract_csrf_token, extract_session_id, get_page_html
