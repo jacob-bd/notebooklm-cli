@@ -569,8 +569,14 @@ class NotebookLMClient:
         params: Any,
         path: str = "/",
         timeout: float | None = None,
+        _retry: bool = True,  # Internal flag for retry control
     ) -> Any:
-        """Execute an RPC call and return the extracted result."""
+        """Execute an RPC call and return the extracted result.
+        
+        On Code 16 (auth expired), automatically refreshes tokens and retries once.
+        """
+        from nlm.core.exceptions import AuthenticationError
+        
         client = self._get_client()
         body = self._build_request_body(rpc_id, params)
         url = self._build_url(rpc_id, path)
@@ -581,40 +587,51 @@ class NotebookLMClient:
             else:
                 response = client.post(url, content=body)
             
-            import sys
-            # Check for auth-related HTTP errors
-            if response.status_code in (401, 403):
-                from nlm.core.exceptions import AuthenticationError
+            response.raise_for_status()
+            
+            # Parse and extract RPC result (may raise AuthenticationError on Code 16)
+            parsed = self._parse_response(response.text)
+            result = self._extract_rpc_result(parsed, rpc_id)
+            
+            # Check for null result on list_notebooks (another auth failure symptom)
+            if result is None and rpc_id == RPC.LIST_NOTEBOOKS:
+                raise AuthenticationError(
+                    message="Unable to fetch notebooks - authentication may have expired",
+                    hint="Run 'nlm login' to re-authenticate.",
+                )
+            
+            return result
+            
+        except (httpx.HTTPStatusError, AuthenticationError) as e:
+            # Check for auth failures (401/403 HTTP or RPC Error 16)
+            is_http_auth = isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (401, 403)
+            is_rpc_auth = isinstance(e, AuthenticationError)
+            
+            if (is_http_auth or is_rpc_auth) and _retry:
+                # Token likely expired - refresh and retry once
+                try:
+                    self._refresh_auth_tokens()
+                    # Reset client to pick up new tokens in headers
+                    self._client = None
+                    # Retry with fresh tokens (disable retry to prevent infinite loop)
+                    return self._call_rpc(rpc_id, params, path, timeout, _retry=False)
+                except AuthenticationError:
+                    # Refresh failed (cookies expired), re-raise
+                    raise
+            
+            # Re-raise if already retried or not an auth error
+            if is_http_auth:
                 raise AuthenticationError(
                     message="Authentication failed or session expired",
                     hint="Your session has expired. Run 'nlm login' to re-authenticate.",
-                )
+                ) from e
+            raise
             
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            # Handle other HTTP errors
-            from nlm.core.exceptions import handle_api_error
-            raise handle_api_error(e.response.status_code) from e
         except httpx.RequestError as e:
             raise NetworkError(
                 message=f"Request failed: {e}",
                 hint="Check your internet connection.",
             ) from e
-        
-        parsed = self._parse_response(response.text)
-        result = self._extract_rpc_result(parsed, rpc_id)
-        
-        # Check for auth-related error responses in the RPC result
-        # NotebookLM sometimes returns null or error arrays for auth failures
-        if result is None and rpc_id == RPC.LIST_NOTEBOOKS:
-            # Null result for list_notebooks often means auth issue
-            from nlm.core.exceptions import AuthenticationError
-            raise AuthenticationError(
-                message="Unable to fetch notebooks - authentication may have expired",
-                hint="Run 'nlm login' to re-authenticate.",
-            )
-        
-        return result
     
     # =========================================================================
     # Notebook Operations (matching MCP signatures)
@@ -1695,27 +1712,69 @@ class NotebookLMClient:
         sources: list[dict],
     ) -> list[dict]:
         """Import research sources into the notebook."""
-        source_array = []
+        web_sources = []
+        drive_sources = []
+        imported = []
+        
+        # Regex for Drive IDs from URLs like https://drive.google.com/open?id=...
+        drive_id_pattern = re.compile(r"id=([a-zA-Z0-9_-]+)")
+        
         for src in sources:
             url = src.get("url", "")
             title = src.get("title", "Untitled")
-            if url:
-                source_data = [None, None, [url, title], None, None, None, None, None, None, None, 2]
-                source_array.append(source_data)
-        
-        params = [None, [1], task_id, notebook_id, source_array]
-        result = self._call_rpc(RPC.IMPORT_RESEARCH, params, f"/notebook/{notebook_id}", timeout=120.0)
-        
-        imported = []
-        if result and isinstance(result, list):
-            if len(result) > 0 and isinstance(result[0], list):
-                result = result[0]
             
-            for src_data in result:
-                if isinstance(src_data, list) and len(src_data) >= 2:
-                    src_id = src_data[0][0] if src_data[0] else None
-                    src_title = src_data[1] if len(src_data) > 1 else ""
-                    imported.append({"id": src_id, "title": src_title})
+            if "drive.google.com" in url:
+                match = drive_id_pattern.search(url)
+                if match:
+                    drive_sources.append({"id": match.group(1), "title": title, "url": url})
+                else:
+                    web_sources.append(src)
+            else:
+                web_sources.append(src)
+        
+        # 1. Import Drive sources using native Add Source (File) logic
+        for ds in drive_sources:
+            try:
+                # Use source_type=SourceType.DRIVE (or equivalent int, but enum is safer if available)
+                # Checking add_source signature: expected SourceType enum or int value
+                # We need to make sure we pass the correct type. SourceType.DRIVE is defined in constants.
+                # Since we are inside client, we can refer to SourceType if imported or self.SourceType?
+                # Actually SourceType is likely a constant class defined in this file or imported.
+                # Let's check imports/definitions. Code view showed SourceType is used in add_source arg.
+                # Assuming SourceType.DRIVE is available.
+                
+                # NOTE: add_source takes (notebook_id, source, source_type)
+                # For Drive, source is the file ID.
+                new_id = self.add_source(notebook_id, ds["id"], SourceType.DRIVE)
+                imported.append({"id": new_id, "title": ds["title"]})
+            except Exception as e:
+                # If individual import fails, we skip it but continue others
+                print(f"Warning: Failed to import Drive source '{ds['title']}': {e}")
+
+        # 2. Import Web sources via Research RPC (batch)
+        if web_sources:
+            source_array = []
+            for src in web_sources:
+                url = src.get("url", "")
+                title = src.get("title", "Untitled")
+                if url:
+                    source_data = [None, None, [url, title], None, None, None, None, None, None, None, 2]
+                    source_array.append(source_data)
+            
+            if source_array:
+                params = [None, [1], task_id, notebook_id, source_array]
+                # Use longer timeout for batch imports
+                result = self._call_rpc(RPC.IMPORT_RESEARCH, params, f"/notebook/{notebook_id}", timeout=120.0)
+                
+                if result and isinstance(result, list):
+                    if len(result) > 0 and isinstance(result[0], list):
+                        result = result[0]
+                    
+                    for src_data in result:
+                        if isinstance(src_data, list) and len(src_data) >= 2:
+                            src_id = src_data[0][0] if src_data[0] else None
+                            src_title = src_data[1] if len(src_data) > 1 else ""
+                            imported.append({"id": src_id, "title": src_title})
         
         return imported
     
