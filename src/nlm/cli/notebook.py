@@ -201,6 +201,15 @@ def query_notebook(
         if response:
             console.print(response.get("answer", "No response"))
             
+            # Print citations footer
+            sources = response.get("sources", [])
+            if sources:
+                console.print("\n[bold]Sources:[/bold]")
+                for i, src in enumerate(sources, 1):
+                    title = src.get("title", "Untitled")
+                    # Try to be smart about alignment if list is long, but simple is fine for now
+                    console.print(f"  [dim][{i}] {title}[/dim]")
+            
             conv_id = response.get("conversation_id")
             if conv_id:
                 console.print(f"\n[dim]Conversation ID: {conv_id}[/dim]")

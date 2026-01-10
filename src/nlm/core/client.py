@@ -1764,9 +1764,21 @@ class NotebookLMClient:
         client = self._get_client()
         
         # Get source IDs if not provided
+        # Get source metadata for citations
+        used_sources = []
+        notebook = self.get_notebook(notebook_id)
+        
         if source_ids is None:
-            notebook_data = self.get_notebook(notebook_id)
-            source_ids = self._extract_source_ids(notebook_data)
+            if notebook and notebook.sources:
+                source_ids = [s["id"] for s in notebook.sources]
+                used_sources = notebook.sources
+            else:
+                source_ids = []
+        else:
+            # Resolve titles for requested source IDs
+            if notebook and notebook.sources:
+                lookup = {s["id"]: s for s in notebook.sources}
+                used_sources = [lookup[sid] for sid in source_ids if sid in lookup]
         
         # Handle conversation
         is_new = conversation_id is None
@@ -1829,11 +1841,18 @@ class NotebookLMClient:
             "conversation_id": conversation_id,
             "turn_number": len(turns),
             "is_follow_up": not is_new,
+            "sources": used_sources,
         }
     
     def _extract_source_ids(self, notebook_data: Any) -> list[str]:
         """Extract source IDs from notebook data."""
         source_ids = []
+        
+        # Handle Notebook object
+        if hasattr(notebook_data, "sources") and notebook_data.sources:
+            return [s["id"] for s in notebook_data.sources]
+            
+        # Handle raw list data (fallback)
         if notebook_data and isinstance(notebook_data, list):
             try:
                 if len(notebook_data) > 0 and isinstance(notebook_data[0], list):
