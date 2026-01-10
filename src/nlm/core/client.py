@@ -1752,7 +1752,7 @@ class NotebookLMClient:
             
             task_dict = {
                 "task_id": task_id,
-                "status": "completed" if status_code == 2 else "in_progress",
+                "status": "completed" if status_code == 6 else "in_progress",
                 "sources": sources,
                 "source_count": len(sources),
             }
