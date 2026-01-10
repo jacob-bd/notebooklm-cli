@@ -766,6 +766,7 @@ class NotebookLMClient:
         document_id: str,
         title: str,
         doc_type: str = "doc",
+        timeout: float | None = None,
     ) -> dict | None:
         """Add a Google Drive document as a source."""
         mime_types = {
@@ -778,7 +779,7 @@ class NotebookLMClient:
         
         source_data = [[document_id, mime_type, 1, title], None, None, None, None, None, None, None, None, None, 1]
         params = [[source_data], notebook_id, [2], [1, None, None, None, None, None, None, None, None, None, [1]]]
-        return self._call_rpc(RPC.ADD_SOURCE, params, f"/notebook/{notebook_id}")
+        return self._call_rpc(RPC.ADD_SOURCE, params, f"/notebook/{notebook_id}", timeout=timeout)
     
     def get_source(self, source_id: str) -> dict | None:
         """Get source details."""
@@ -1756,18 +1757,42 @@ class NotebookLMClient:
         # 1. Import Drive sources using native Add Source (File) logic
         for ds in drive_sources:
             try:
-                # Use source_type=SourceType.DRIVE (or equivalent int, but enum is safer if available)
-                # Checking add_source signature: expected SourceType enum or int value
-                # We need to make sure we pass the correct type. SourceType.DRIVE is defined in constants.
-                # Since we are inside client, we can refer to SourceType if imported or self.SourceType?
-                # Actually SourceType is likely a constant class defined in this file or imported.
-                # Let's check imports/definitions. Code view showed SourceType is used in add_source arg.
-                # Assuming SourceType.DRIVE is available.
+                # Try import with different types (doc, pdf, slides)
+                # Some files (like Slides) fail if imported with wrong type.
+                new_source = None
+                import_errors = []
                 
-                # NOTE: add_source takes (notebook_id, source, source_type)
-                # For Drive, source is the file ID.
-                new_id = self.add_source(notebook_id, ds["id"], SourceType.DRIVE)
-                imported.append({"id": new_id, "title": ds["title"]})
+                # Try types in order. "doc" covers Google Docs, "pdf" covers generic files/PDFs, "slides" for presentations.
+                for dtype in ["doc", "pdf", "slides"]:
+                    try:
+                        # Use longer timeout for PDF/Slides as they can be large or take time to convert
+                        timeout = 60.0 if dtype in ["pdf", "slides"] else 30.0
+                        new_source = self.add_source_drive(notebook_id, ds["id"], ds["title"], doc_type=dtype, timeout=timeout)
+                        if new_source:
+                            break
+                    except Exception as e:
+                        import_errors.append(f"{dtype}: {str(e)}")
+                
+                if new_source:
+                    source_id = "unknown"
+                    if isinstance(new_source, dict):
+                        source_id = new_source.get("source_id", "unknown")
+                    elif isinstance(new_source, list):
+                        # Extract ID from nested list structure: [[[[id], title, ...], ...]]
+                        try:
+                            # result[0][0][0][0] seems to be the ID
+                            if (len(new_source) > 0 and 
+                                isinstance(new_source[0], list) and len(new_source[0]) > 0 and
+                                isinstance(new_source[0][0], list) and len(new_source[0][0]) > 0 and
+                                isinstance(new_source[0][0][0], list) and len(new_source[0][0][0]) > 0):
+                                source_id = new_source[0][0][0][0]
+                        except (IndexError, TypeError):
+                            pass
+                            
+                    imported.append({"id": source_id, "title": ds["title"]})
+                else:
+                    errors_str = "; ".join(import_errors)
+                    print(f"Warning: Failed to import Drive source '{ds['title']}' (tried doc, pdf, slides). Errors: {errors_str}")
             except Exception as e:
                 # If individual import fails, we skip it but continue others
                 print(f"Warning: Failed to import Drive source '{ds['title']}': {e}")
