@@ -1690,6 +1690,7 @@ class NotebookLMClient:
                         "index": idx,
                         "url": src[0] if isinstance(src[0], str) else "",
                         "title": src[1] if len(src) > 1 else "",
+                        "type_code": src[3] if len(src) > 3 and isinstance(src[3], int) else None,
                     })
             
             task_dict = {
@@ -1733,96 +1734,92 @@ class NotebookLMClient:
         task_id: str,
         sources: list[dict],
     ) -> list[dict]:
-        """Import research sources into the notebook."""
-        web_sources = []
-        drive_sources = []
-        imported = []
+        """Import research sources into the notebook.
         
-        # Regex for Drive IDs from URLs like https://drive.google.com/open?id=...
-        drive_id_pattern = re.compile(r"id=([a-zA-Z0-9_-]+)")
+        Uses the native research import RPC which handles source types correctly
+        and avoids duplicates/ghost entries.
+        """
+        if not sources:
+            return []
+
+        # Build source array for import using the specific format required by RPC_IMPORT_RESEARCH
+        # This matches the implementation in notebooklm-mcp/api_client.py
+        source_array = []
         
         for src in sources:
             url = src.get("url", "")
             title = src.get("title", "Untitled")
             
-            if "drive.google.com" in url:
-                match = drive_id_pattern.search(url)
-                if match:
-                    drive_sources.append({"id": match.group(1), "title": title, "url": url})
-                else:
-                    web_sources.append(src)
-            else:
-                web_sources.append(src)
-        
-        # 1. Import Drive sources using native Add Source (File) logic
-        for ds in drive_sources:
-            try:
-                # Try import with different types (doc, pdf, slides)
-                # Some files (like Slides) fail if imported with wrong type.
-                new_source = None
-                import_errors = []
-                
-                # Try types in order. "doc" covers Google Docs, "pdf" covers generic files/PDFs, "slides" for presentations.
-                for dtype in ["doc", "pdf", "slides"]:
-                    try:
-                        # Use longer timeout for PDF/Slides as they can be large or take time to convert
-                        timeout = 60.0 if dtype in ["pdf", "slides"] else 30.0
-                        new_source = self.add_source_drive(notebook_id, ds["id"], ds["title"], doc_type=dtype, timeout=timeout)
-                        if new_source:
-                            break
-                    except Exception as e:
-                        import_errors.append(f"{dtype}: {str(e)}")
-                
-                if new_source:
-                    source_id = "unknown"
-                    if isinstance(new_source, dict):
-                        source_id = new_source.get("source_id", "unknown")
-                    elif isinstance(new_source, list):
-                        # Extract ID from nested list structure: [[[[id], title, ...], ...]]
-                        try:
-                            # result[0][0][0][0] seems to be the ID
-                            if (len(new_source) > 0 and 
-                                isinstance(new_source[0], list) and len(new_source[0]) > 0 and
-                                isinstance(new_source[0][0], list) and len(new_source[0][0]) > 0 and
-                                isinstance(new_source[0][0][0], list) and len(new_source[0][0][0]) > 0):
-                                source_id = new_source[0][0][0][0]
-                        except (IndexError, TypeError):
-                            pass
-                            
-                    imported.append({"id": source_id, "title": ds["title"]})
-                else:
-                    errors_str = "; ".join(import_errors)
-                    print(f"Warning: Failed to import Drive source '{ds['title']}' (tried doc, pdf, slides). Errors: {errors_str}")
-            except Exception as e:
-                # If individual import fails, we skip it but continue others
-                print(f"Warning: Failed to import Drive source '{ds['title']}': {e}")
-
-        # 2. Import Web sources via Research RPC (batch)
-        if web_sources:
-            source_array = []
-            for src in web_sources:
-                url = src.get("url", "")
-                title = src.get("title", "Untitled")
-                if url:
-                    source_data = [None, None, [url, title], None, None, None, None, None, None, None, 2]
-                    source_array.append(source_data)
+            # Use type_code from research results (3rd index in raw list, mapped in poll_research)
+            # Default to 1 (Web) if missing
+            result_type = src.get("type_code", 1)
             
-            if source_array:
-                params = [None, [1], task_id, notebook_id, source_array]
-                # Use longer timeout for batch imports
-                result = self._call_rpc(RPC.IMPORT_RESEARCH, params, f"/notebook/{notebook_id}", timeout=120.0)
+            # Skip deep_report sources (type 5) and empty URLs
+            if result_type == 5 or not url:
+                continue
+
+            if result_type == 1:
+                # Web source structure: [None, None, [url, title], None, None, None, None, None, None, None, 2]
+                source_data = [None, None, [url, title], None, None, None, None, None, None, None, 2]
+            else:
+                # Drive source - extract document ID from URL
+                # URL format: https://drive.google.com/open?id=<doc_id> or similar
+                doc_id = None
+                if "id=" in url:
+                    doc_id = url.split("id=")[-1].split("&")[0]
                 
-                if result and isinstance(result, list):
-                    if len(result) > 0 and isinstance(result[0], list):
-                        result = result[0]
+                if doc_id:
+                    # Determine MIME type from result_type (type_code)
+                    mime_types = {
+                        2: "application/vnd.google-apps.document",     # Doc
+                        3: "application/vnd.google-apps.presentation", # Slide (Presentation)
+                        8: "application/vnd.google-apps.spreadsheet",  # Sheet
+                    }
+                    mime_type = mime_types.get(result_type, "application/vnd.google-apps.document")
                     
-                    for src_data in result:
-                        if isinstance(src_data, list) and len(src_data) >= 2:
-                            src_id = src_data[0][0] if src_data[0] else None
-                            src_title = src_data[1] if len(src_data) > 1 else ""
-                            imported.append({"id": src_id, "title": src_title})
+                    # Drive source structure: [[doc_id, mime_type, 1, title], None x9, 2]
+                    # The 1 at position 2 and trailing 2 are required
+                    source_data = [[doc_id, mime_type, 1, title], None, None, None, None, None, None, None, None, None, 2]
+                else:
+                    # Fallback to web-style import if no ID found
+                    source_data = [None, None, [url, title], None, None, None, None, None, None, None, 2]
+            
+            source_array.append(source_data)
+
+        if not source_array:
+            return []
+
+        # Call RPC_IMPORT_RESEARCH with the batch
+        # Params: [None, [1], task_id, notebook_id, source_array]
+        params = [None, [1], task_id, notebook_id, source_array]
         
-        return imported
+        try:
+            # Import can take a long time when fetching multiple sources
+            # Use 120s timeout instead of the default 30s
+            # Note: _call_rpc returns the extracted result structure directly
+            result = self._call_rpc(RPC.IMPORT_RESEARCH, params, f"/notebook/{notebook_id}", timeout=120.0)
+            
+            imported_sources = []
+            if result and isinstance(result, list):
+                # Unwrap nested list if present (common in batch execute)
+                if (len(result) > 0 and isinstance(result[0], list) and 
+                    len(result[0]) > 0 and isinstance(result[0][0], list)):
+                    result = result[0]
+                
+                for src_data in result:
+                    if isinstance(src_data, list) and len(src_data) >= 2:
+                        # Extract source ID and Title
+                        src_id = src_data[0][0] if src_data[0] and isinstance(src_data[0], list) else None
+                        src_title = src_data[1] if len(src_data) > 1 else "Untitled"
+                        if src_id:
+                            imported_sources.append({"id": src_id, "title": src_title})
+            
+            return imported_sources
+
+        except Exception as e:
+            # If batch import fails, re-raise or handle
+            print(f"Error importing sources batch: {e}")
+            raise e
     
     def get_research_status(
         self,
