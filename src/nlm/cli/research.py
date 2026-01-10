@@ -42,6 +42,10 @@ def start_research(
         None, "--title", "-t",
         help="Title for new notebook",
     ),
+    force: bool = typer.Option(
+        False, "--force", "-f",
+        help="Start new research even if one is already pending",
+    ),
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
 ) -> None:
     """
@@ -76,6 +80,24 @@ def start_research(
         notebook_id = get_alias_manager().resolve(notebook_id)
         
         with get_client(profile) as client:
+            # Check for existing research before starting new one
+            if not force:
+                existing = client.poll_research(notebook_id)
+                if existing and existing.get("status") == "in_progress":
+                    console.print("[yellow]Warning:[/yellow] Research already in progress for this notebook.")
+                    console.print(f"  Task ID: {existing.get('task_id', 'unknown')}")
+                    console.print(f"  Sources found so far: {existing.get('source_count', 0)}")
+                    console.print("\n[dim]Use --force to start a new research anyway (will overwrite pending results).[/dim]")
+                    console.print("[dim]Or run 'nlm research status' to check progress / 'nlm research import' to save results.[/dim]")
+                    raise typer.Exit(1)
+                elif existing and existing.get("status") == "completed" and existing.get("source_count", 0) > 0:
+                    console.print("[yellow]Warning:[/yellow] Previous research completed with sources not yet imported.")
+                    console.print(f"  Task ID: {existing.get('task_id', 'unknown')}")
+                    console.print(f"  Sources available: {existing.get('source_count', 0)}")
+                    console.print("\n[dim]Use --force to start a new research (will discard existing results).[/dim]")
+                    console.print("[dim]Or run 'nlm research import' to save the existing results first.[/dim]")
+                    raise typer.Exit(1)
+            
             task = client.start_research(
                 notebook_id=notebook_id,
                 query=query,
