@@ -76,6 +76,7 @@ class RPC:
     GENERATE_MIND_MAP = "yyryJe"
     SAVE_MIND_MAP = "CYK0Xb"
     LIST_MIND_MAPS = "cFji9"
+    DELETE_MIND_MAP = "AH0mwd"
 
 
 # ============================================================================
@@ -492,7 +493,7 @@ class NotebookLMClient:
         params = {
             "rpcids": rpc_id,
             "source-path": source_path,
-            "bl": os.environ.get("NOTEBOOKLM_BL", "boq_labs-tailwind-frontend_20251221.14_p0"),
+            "bl": os.environ.get("NOTEBOOKLM_BL", "boq_labs-tailwind-frontend_20260108.06_p0"),
             "hl": "en",
             "rt": "c",
         }
@@ -1375,7 +1376,7 @@ class NotebookLMClient:
         return None
     
     def list_mindmaps(self, notebook_id: str) -> list[dict]:
-        """List mind maps in a notebook."""
+        """List mind maps in a notebook. Skips deleted/tombstone entries."""
         params = [notebook_id]
         result = self._call_rpc(RPC.LIST_MIND_MAPS, params, f"/notebook/{notebook_id}")
         
@@ -1384,13 +1385,16 @@ class NotebookLMClient:
             # Structure: [[mindmap_data, ...], timestamp]
             mm_list = result[0] if isinstance(result[0], list) else []
             for mm_entry in mm_list:
-                if isinstance(mm_entry, list) and len(mm_entry) >= 2:
-                    mm_id = str(mm_entry[0]) if mm_entry[0] else "unknown"
+                # Check if it's a valid non-deleted entry: [uuid, [data...]]
+                # Deleted entries look like: [uuid, null, 2]
+                if isinstance(mm_entry, list) and len(mm_entry) >= 2 and mm_entry[1] is not None:
+                    mm_id = str(mm_entry[0])
                     mm_title = "Untitled Mind Map"
-                    # Title is at mm_entry[1][4] based on debug output
-                    inner = mm_entry[1] if len(mm_entry) > 1 else None
+                    
+                    inner = mm_entry[1]
                     if isinstance(inner, list) and len(inner) > 4 and isinstance(inner[4], str):
                         mm_title = inner[4]
+                        
                     mindmaps.append({
                         "id": mm_id,
                         "title": mm_title,
@@ -1598,16 +1602,69 @@ class NotebookLMClient:
                 })
         
         return artifacts
+
+    def delete_studio_artifact(self, artifact_id: str, notebook_id: str | None = None) -> bool:
+        """Delete a studio artifact.
+        
+        Args:
+            artifact_id: ID of the artifact to delete.
+            notebook_id: Optional notebook ID. Required for deleting Mind Maps.
+        """
+        # 1. Try standard deletion (Audio, Video, etc.)
+        try:
+            params = [[2], artifact_id]
+            result = self._call_rpc(RPC.DELETE_STUDIO, params)
+            if result is not None:
+                return True
+        except Exception:
+            # Continue to fallback if standard delete fails
+            pass
+            
+        # 2. Fallback: Try Mind Map deletion if we have a notebook ID
+        # Mind maps require a different RPC (AH0mwd) and payload structure
+        if notebook_id:
+            return self.delete_mind_map(notebook_id, artifact_id)
+            
+        return False
     
-    def delete_studio_artifact(self, artifact_id: str) -> bool:
-        """Delete a studio artifact."""
-        params = [[2], artifact_id]
-        result = self._call_rpc(RPC.DELETE_STUDIO, params)
-        return result is not None
-    
+    def delete_mind_map(self, notebook_id: str, mind_map_id: str) -> bool:
+        """Delete a Mind Map artifact using the observed two-step RPC sequence.
+        
+        Args:
+            notebook_id: The notebook UUID.
+            mind_map_id: The Mind Map artifact UUID.
+        """
+        # 1. We need the artifact-specific timestamp from LIST_MIND_MAPS
+        params = [notebook_id]
+        list_result = self._call_rpc(RPC.LIST_MIND_MAPS, params, f"/notebook/{notebook_id}")
+        
+        timestamp = None
+        if list_result and isinstance(list_result, list) and len(list_result) > 0:
+            mm_list = list_result[0] if isinstance(list_result[0], list) else []
+            for mm_entry in mm_list:
+                if isinstance(mm_entry, list) and mm_entry[0] == mind_map_id:
+                    # Based on debug output: item[1][2][2] contains [seconds, micros]
+                    try:
+                        timestamp = mm_entry[1][2][2]
+                    except (IndexError, TypeError):
+                        pass
+                    break
+        
+        # 2. Step 1: UUID-based deletion (AH0mwd)
+        params_v2 = [notebook_id, None, [mind_map_id], [2]]
+        self._call_rpc(RPC.DELETE_MIND_MAP, params_v2, f"/notebook/{notebook_id}")
+        
+        # 3. Step 2: Timestamp-based sync/deletion (cFji9)
+        # This is required to fully remove it from the list and avoid "ghosts"
+        if timestamp:
+            params_v1 = [notebook_id, None, timestamp, [2]]
+            self._call_rpc(RPC.LIST_MIND_MAPS, params_v1, f"/notebook/{notebook_id}")
+            
+        return True
+
     def delete_artifact(self, notebook_id: str, artifact_id: str) -> bool:
         """Delete a studio artifact. Alias for delete_studio_artifact."""
-        return self.delete_studio_artifact(artifact_id)
+        return self.delete_studio_artifact(artifact_id, notebook_id)
     
     # =========================================================================
     # Research Operations (matching MCP signatures)
