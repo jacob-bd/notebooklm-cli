@@ -13,18 +13,58 @@ from nlm.output.formatters import detect_output_format, get_formatter
 console = Console()
 
 # Main studio app for status/delete
-app = typer.Typer(help="Manage studio artifacts")
+app = typer.Typer(
+    help="Manage studio artifacts",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 # Individual generation apps
-audio_app = typer.Typer(help="Create audio overviews")
-report_app = typer.Typer(help="Create reports")
-quiz_app = typer.Typer(help="Create quizzes")
-flashcards_app = typer.Typer(help="Create flashcards")
-mindmap_app = typer.Typer(help="Create and manage mind maps")
-slides_app = typer.Typer(help="Create slide decks")
-infographic_app = typer.Typer(help="Create infographics")
-video_app = typer.Typer(help="Create video overviews")
-data_table_app = typer.Typer(help="Create data tables")
+audio_app = typer.Typer(
+    help="Create audio overviews",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+report_app = typer.Typer(
+    help="Create reports",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+quiz_app = typer.Typer(
+    help="Create quizzes",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+flashcards_app = typer.Typer(
+    help="Create flashcards",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+mindmap_app = typer.Typer(
+    help="Create and manage mind maps",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+slides_app = typer.Typer(
+    help="Create slide decks",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+infographic_app = typer.Typer(
+    help="Create infographics",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+video_app = typer.Typer(
+    help="Create video overviews",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
+data_table_app = typer.Typer(
+    help="Create data tables",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 def get_client(profile: str | None = None) -> NotebookLMClient:
@@ -97,15 +137,24 @@ def create_audio(
     notebook_id: str = typer.Argument(..., help="Notebook ID"),
     format: str = typer.Option(
         "deep_dive", "--format", "-f",
-        help="Format: deep_dive, brief, critique, debate",
+        help="Overview format (deep_dive, brief, critique, debate)",
     ),
     length: str = typer.Option(
         "default", "--length", "-l",
-        help="Length: short, default, long",
+        help="Length (short, default, long)",
     ),
-    language: str = typer.Option("en", "--language", help="BCP-47 language code: en, es, fr, de, ja"),
-    focus: str = typer.Option("", "--focus", help="Optional focus topic"),
-    source_ids: Optional[str] = typer.Option(None, "--source-ids", "-s", help="Comma-separated source IDs"),
+    language: str = typer.Option(
+        "en", "--language",
+        help="BCP-47 language code (en, es, fr, de, ja)",
+    ),
+    focus: Optional[str] = typer.Option(
+        None, "--focus",
+        help="Optional focus topic",
+    ),
+    source_ids: Optional[str] = typer.Option(
+        None, "--source-ids", "-s",
+        help="Comma-separated source IDs",
+    ),
     confirm: bool = typer.Option(False, "--confirm", "-y", help="Skip confirmation"),
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
 ) -> None:

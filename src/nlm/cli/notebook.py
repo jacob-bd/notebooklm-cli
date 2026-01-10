@@ -11,7 +11,11 @@ from nlm.core.exceptions import NLMError
 from nlm.output.formatters import detect_output_format, get_formatter
 
 console = Console()
-app = typer.Typer(help="Manage notebooks")
+app = typer.Typer(
+    help="Manage notebooks",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 def get_client(profile: str | None = None) -> NotebookLMClient:
@@ -52,6 +56,10 @@ def create_notebook(
         with get_client(profile) as client:
             notebook = client.create_notebook(title)
         
+        if not notebook:
+            console.print("[red]Error:[/red] Failed to create notebook. The API returned an empty or invalid response.")
+            raise typer.Exit(1)
+            
         console.print(f"[green]✓[/green] Created notebook: {notebook.title}")
         console.print(f"  ID: {notebook.id}")
     except NLMError as e:

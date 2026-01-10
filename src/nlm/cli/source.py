@@ -11,7 +11,11 @@ from nlm.core.exceptions import NLMError
 from nlm.output.formatters import detect_output_format, get_formatter
 
 console = Console()
-app = typer.Typer(help="Manage sources")
+app = typer.Typer(
+    help="Manage sources",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 def get_client(profile: str | None = None) -> NotebookLMClient:

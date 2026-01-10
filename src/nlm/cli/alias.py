@@ -7,7 +7,11 @@ from rich.table import Table
 from nlm.core.alias import get_alias_manager
 
 console = Console()
-app = typer.Typer(help="Manage ID aliases")
+app = typer.Typer(
+    help="Manage ID aliases",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 @app.command("set")

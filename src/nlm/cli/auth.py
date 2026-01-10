@@ -7,7 +7,11 @@ from nlm.core.auth import AuthManager
 from nlm.core.exceptions import NLMError
 
 console = Console()
-app = typer.Typer(help="Authentication commands")
+app = typer.Typer(
+    help="Authentication commands",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 @app.command("status")

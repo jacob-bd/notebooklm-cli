@@ -11,7 +11,11 @@ from nlm.core.client import NotebookLMClient
 from nlm.core.exceptions import NLMError
 
 console = Console()
-app = typer.Typer(help="Research and discover sources")
+app = typer.Typer(
+    help="Research and discover sources",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 def get_client(profile: str | None = None) -> NotebookLMClient:

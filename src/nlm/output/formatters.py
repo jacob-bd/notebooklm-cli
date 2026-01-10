@@ -205,11 +205,11 @@ class TableFormatter(Formatter):
 
         table = Table(show_header=True, header_style="bold")
         table.add_column("ID", style="cyan", min_width=36, no_wrap=True)
+        table.add_column("Title", max_width=40)
         table.add_column("Type")
         table.add_column("Status")
         
         if full:
-            table.add_column("Title")
             table.add_column("URL")
 
         for art in artifacts:
@@ -236,11 +236,12 @@ class TableFormatter(Formatter):
             
             row = [
                 art_id,
+                art_title or '-',
                 art_type,
                 f'[{status_style}]{art_status}[/{status_style}]' if status_style else art_status,
             ]
             if full:
-                row.extend([art_title or '-', art_url or '-'])
+                row.append(art_url or '-')
             table.add_row(*row)
 
         self.console.print(table)

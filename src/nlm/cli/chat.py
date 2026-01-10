@@ -10,7 +10,11 @@ from nlm.core.client import NotebookLMClient
 from nlm.core.exceptions import NLMError
 
 console = Console()
-app = typer.Typer(help="Configure chat settings")
+app = typer.Typer(
+    help="Configure chat settings",
+    rich_markup_mode="rich",
+    no_args_is_help=True,
+)
 
 
 def get_client(profile: str | None = None) -> NotebookLMClient:
