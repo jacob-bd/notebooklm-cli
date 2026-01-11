@@ -99,3 +99,6 @@ def delete_alias(
     else:
         console.print(f"[yellow]⚠[/yellow] Alias '{name}' not found")
         raise typer.Exit(1)
+
+
+

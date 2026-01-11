@@ -281,7 +281,7 @@ nlm studio delete <notebook-id> <artifact-id> --confirm  # Delete artifact
 ### Alias Commands
 
 ```bash
-nlm alias set <name> <uuid>     # Create/update alias
+nlm alias set <name> <uuid>     # Create/update alias (auto-detects type)
 nlm alias get <name>            # Get UUID for alias
 nlm alias list                  # List all aliases
 nlm alias delete <name>         # Remove (no --confirm needed)

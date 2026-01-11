@@ -96,7 +96,7 @@ Tired of typing long UUIDs? Create aliases:
 
 ```bash
 # Set an alias
-nlm alias set myproject abc123-def456-...
+nlm alias set myproject abc123-def456-... # Types are auto-detected!
 
 # Now use the alias anywhere
 nlm notebook get myproject
