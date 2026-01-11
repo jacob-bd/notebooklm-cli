@@ -202,6 +202,7 @@ nlm notebook list              # Rich table (default)
 nlm notebook list --json       # JSON output
 nlm notebook list --quiet      # IDs only (for scripting)
 nlm notebook list --title      # "ID: Title" format
+nlm source list --url          # "ID: URL" format
 nlm notebook list --full       # All columns
 ```
 

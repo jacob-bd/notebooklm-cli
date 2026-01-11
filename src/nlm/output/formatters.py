@@ -21,6 +21,7 @@ def detect_output_format(
     json_flag: bool = False,
     quiet_flag: bool = False,
     title_flag: bool = False,
+    url_flag: bool = False,
 ) -> OutputFormat:
     """
     Detect the appropriate output format based on flags and TTY.
@@ -29,13 +30,14 @@ def detect_output_format(
         json_flag: User explicitly requested JSON output.
         quiet_flag: User requested quiet/compact output.
         title_flag: User requested title output (for notebooks).
+        url_flag: User requested URL output (for sources).
     
     Returns:
         The output format to use.
     """
     if json_flag:
         return OutputFormat.JSON
-    if quiet_flag or title_flag:
+    if quiet_flag or title_flag or url_flag:
         return OutputFormat.COMPACT
     
     # Auto-detect based on TTY
@@ -64,6 +66,7 @@ class Formatter:
         self,
         sources: list[Any],
         full: bool = False,
+        url_only: bool = False,
     ) -> None:
         """Format source list output."""
         raise NotImplementedError
@@ -151,6 +154,7 @@ class TableFormatter(Formatter):
         self,
         sources: list[Any],
         full: bool = False,
+        url_only: bool = False,
     ) -> None:
         if not sources:
             self.console.print("[dim]No sources found.[/dim]")
@@ -158,11 +162,11 @@ class TableFormatter(Formatter):
 
         table = Table(show_header=True, header_style="bold")
         table.add_column("ID", style="cyan", min_width=36, no_wrap=True)
-        table.add_column("Title")
+        table.add_column("Title", max_width=30, overflow="ellipsis")
         table.add_column("Type")
         
         if full:
-            table.add_column("URL")
+            table.add_column("URL", overflow="fold", max_width=80)
             table.add_column("Stale", justify="center")
 
         for src in sources:
@@ -182,14 +186,11 @@ class TableFormatter(Formatter):
             
             row = [
                 src_id,
-                src_title[:40] + '...' if len(src_title) > 40 else src_title,
+                src_title,
                 src_type,
             ]
             if full:
-                url = src_url or '-'
-                if len(url) > 40:
-                    url = url[:37] + '...'
-                row.extend([url, '⚠️' if is_stale else ''])
+                row.extend([src_url or '-', '⚠️' if is_stale else ''])
             table.add_row(*row)
 
         self.console.print(table)
@@ -296,18 +297,27 @@ class JsonFormatter(Formatter):
         self,
         sources: list[Any],
         full: bool = False,
+        url_only: bool = False,
     ) -> None:
         data = []
         for src in sources:
             if isinstance(src, dict):
-                item = {'id': src.get('id', ''), 'title': src.get('title', ''), 'type': src.get('type', '')}
+                item = {
+                    'id': src.get('id', ''),
+                    'title': src.get('title', ''),
+                    'type': src.get('type', ''),
+                    'url': src.get('url', ''),
+                }
                 if full:
-                    item['url'] = src.get('url', '')
                     item['is_stale'] = src.get('is_stale', False)
             else:
-                item = {'id': src.id, 'title': src.title, 'type': src.type}
+                item = {
+                    'id': src.id,
+                    'title': src.title,
+                    'type': src.type,
+                    'url': getattr(src, 'url', '') or '',
+                }
                 if full:
-                    item['url'] = getattr(src, 'url', '')
                     item['is_stale'] = getattr(src, 'is_stale', False)
             data.append(item)
         print(json.dumps(data, indent=2))
@@ -361,12 +371,21 @@ class CompactFormatter(Formatter):
         self,
         sources: list[Any],
         full: bool = False,
+        url_only: bool = False,
     ) -> None:
         for src in sources:
             if isinstance(src, dict):
-                print(src.get('id', ''))
+                src_id = src.get('id', '')
+                src_url = src.get('url', '')
             else:
-                print(src.id)
+                src_id = str(src.id)
+                src_url = getattr(src, 'url', '') or ''
+            
+            if url_only:
+                if src_url:
+                    print(f"{src_id}: {src_url}")
+            else:
+                print(src_id)
 
     def format_artifacts(
         self,

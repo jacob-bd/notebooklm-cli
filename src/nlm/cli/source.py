@@ -30,6 +30,7 @@ def list_sources(
     drive: bool = typer.Option(False, "--drive", "-d", help="Show Drive sources with freshness status"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Output IDs only"),
+    url: bool = typer.Option(False, "--url", "-u", help="Output as ID: URL"),
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
 ) -> None:
     """List sources in a notebook."""
@@ -41,9 +42,9 @@ def list_sources(
             else:
                 sources = client.list_sources(notebook_id)
         
-        fmt = detect_output_format(json_output, quiet)
+        fmt = detect_output_format(json_output, quiet, url_flag=url)
         formatter = get_formatter(fmt, console)
-        formatter.format_sources(sources, full=full or drive)
+        formatter.format_sources(sources, full=full or drive, url_only=url)
     except NLMError as e:
         console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:

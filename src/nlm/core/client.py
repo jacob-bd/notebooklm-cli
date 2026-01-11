@@ -297,8 +297,10 @@ def _parse_notebook_data(nb_data: list) -> Notebook | None:
                 src_title = src[1] if len(src) > 1 else "Untitled"
                 src_id = src_ids[0] if isinstance(src_ids, list) and src_ids else src_ids
                 
-                # Extract source type from metadata
+                # Extract source type and URL from metadata
                 source_type = "unknown"
+                url = ""
+                
                 if len(src) > 2 and isinstance(src[2], list):
                     metadata = src[2]
                     if len(metadata) > 4:
@@ -311,8 +313,20 @@ def _parse_notebook_data(nb_data: list) -> Notebook | None:
                             9: "youtube",
                         }
                         source_type = type_map.get(type_code, "unknown")
+                    
+                    # Extract URL (index 7)
+                    # For web/youtube: metadata[7] -> ["https://..."]
+                    if len(metadata) > 7 and isinstance(metadata[7], list) and len(metadata[7]) > 0:
+                        potential_url = metadata[7][0]
+                        if isinstance(potential_url, str):
+                            url = potential_url
                 
-                sources.append({"id": src_id, "title": src_title, "type": source_type})
+                sources.append({
+                    "id": src_id, 
+                    "title": src_title, 
+                    "type": source_type,
+                    "url": url
+                })
     
     return Notebook(
         id=notebook_id,
@@ -737,6 +751,7 @@ class NotebookLMClient:
                     "id": src.get("id", ""),
                     "title": src.get("title", "Untitled"),
                     "type": src.get("type", "unknown"),
+                    "url": src.get("url", ""),
                 })
             return sources
         

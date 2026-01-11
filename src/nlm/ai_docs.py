@@ -138,6 +138,7 @@ nlm notebook query <id> "question" --source-ids <id1,id2>
 ```bash
 nlm source list <notebook-id>          # List sources
 nlm source list <notebook-id> --full   # Full details
+nlm source list <notebook-id> --url    # "ID: URL" format
 
 nlm source add <notebook-id> --url "https://..."           # Add URL
 nlm source add <notebook-id> --url "https://youtube.com/..." # Add YouTube
@@ -299,6 +300,7 @@ List commands support multiple formats:
 | `--json` | JSON output (for parsing) |
 | `--quiet` | IDs only (for piping) |
 | `--title` | "ID: Title" format |
+| `--url` | "ID: URL" format (sources only) |
 | `--full` | All columns/details |
 
 ---
