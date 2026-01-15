@@ -31,6 +31,9 @@ from nlm.core.exceptions import (
 BASE_URL = "https://notebooklm.google.com"
 BATCHEXECUTE_URL = f"{BASE_URL}/_/LabsTailwindUi/data/batchexecute"
 
+# Timeout constants
+DRIVE_SOURCE_TIMEOUT = 120.0  # Extended timeout for large Drive sources
+
 # Ownership constants
 OWNERSHIP_MINE = 1
 OWNERSHIP_SHARED = 2
@@ -784,7 +787,13 @@ class NotebookLMClient:
         doc_type: str = "doc",
         timeout: float | None = None,
     ) -> dict | None:
-        """Add a Google Drive document as a source."""
+        """Add a Google Drive document as a source.
+        
+        Uses extended timeout (120s) by default for large files like presentations.
+        """
+        # Use extended timeout for Drive sources (large files can take 60s+)
+        if timeout is None:
+            timeout = DRIVE_SOURCE_TIMEOUT
         mime_types = {
             "doc": "application/vnd.google-apps.document",
             "slides": "application/vnd.google-apps.presentation",
