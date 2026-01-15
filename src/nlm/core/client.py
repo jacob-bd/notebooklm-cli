@@ -22,6 +22,7 @@ from nlm.core.exceptions import (
     NotFoundError,
     NLMError,
 )
+from nlm.core.auth_refresh import has_fresher_tokens_on_disk, run_headless_auth
 
 
 # ============================================================================
@@ -587,11 +588,15 @@ class NotebookLMClient:
         params: Any,
         path: str = "/",
         timeout: float | None = None,
-        _retry: bool = True,  # Internal flag for retry control
+        _retry: bool = False,
+        _deep_retry: bool = False,
     ) -> Any:
         """Execute an RPC call and return the extracted result.
         
-        On Code 16 (auth expired), automatically refreshes tokens and retries once.
+        Includes automatic retry on auth failures with three-layer recovery:
+        1. Refresh CSRF/session tokens (fast, handles token expiry)
+        2. Reload cookies from disk (handles external re-authentication)
+        3. Run headless auth (auto-refresh if Chrome profile has saved login)
         """
         from nlm.core.exceptions import AuthenticationError
         
@@ -625,19 +630,39 @@ class NotebookLMClient:
             is_http_auth = isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (401, 403)
             is_rpc_auth = isinstance(e, AuthenticationError)
             
-            if (is_http_auth or is_rpc_auth) and _retry:
-                # Token likely expired - refresh and retry once
+            if not (is_http_auth or is_rpc_auth):
+                if isinstance(e, httpx.RequestError):
+                    raise NetworkError(
+                        message=f"Request failed: {e}",
+                        hint="Check your internet connection.",
+                    ) from e
+                raise
+
+            # Layer 1: Refresh CSRF/session tokens (first retry only)
+            if not _retry:
                 try:
                     self._refresh_auth_tokens()
-                    # Reset client to pick up new tokens in headers
                     self._client = None
-                    # Retry with fresh tokens (disable retry to prevent infinite loop)
-                    return self._call_rpc(rpc_id, params, path, timeout, _retry=False)
-                except AuthenticationError:
-                    # Refresh failed (cookies expired), re-raise
-                    raise
+                    return self._call_rpc(rpc_id, params, path, timeout, _retry=True)
+                except Exception:
+                    # CSRF refresh failed (cookies expired) - continue to layer 2
+                    pass
             
-            # Re-raise if already retried or not an auth error
+            # Layer 2 & 3: Reload from disk or run headless auth (deep retry)
+            if not _deep_retry and self.auth:
+                if self._try_reload_or_headless_auth():
+                    self._client = None
+                    # Update internal auth state from profile
+                    profile = self.auth.load_profile(force_reload=True)
+                    self.cookies = profile.cookies
+                    self.csrf_token = profile.csrf_token
+                    self._session_id = profile.session_id
+                    
+                    return self._call_rpc(
+                        rpc_id, params, path, timeout, _retry=True, _deep_retry=True
+                    )
+            
+            # Re-raise if already retried or recovery failed
             if is_http_auth:
                 raise AuthenticationError(
                     message="Authentication failed or session expired",
@@ -650,6 +675,42 @@ class NotebookLMClient:
                 message=f"Request failed: {e}",
                 hint="Check your internet connection.",
             ) from e
+
+    def _try_reload_or_headless_auth(self) -> bool:
+        """Try to recover authentication by reloading from disk or running headless auth.
+        
+        Returns:
+             True if new valid tokens were obtained and saved to profile.
+        """
+        if not self.auth:
+            return False
+            
+        # Layer 2: Check if disk has fresher tokens
+        try:
+            current_profile = self.auth.load_profile()
+            fresher = has_fresher_tokens_on_disk(current_profile)
+            if fresher:
+                # AuthManager handles the loading, so we just need to report success
+                # The caller will reload the profile from disk
+                return True
+        except Exception:
+            pass
+            
+        # Layer 3: Headless Chrome Auth
+        try:
+            tokens = run_headless_auth()
+            if tokens:
+                # Save new tokens to profile
+                self.auth.save_profile(
+                    cookies=tokens["cookies"],
+                    csrf_token=tokens["csrf_token"],
+                    session_id=tokens["session_id"],
+                )
+                return True
+        except Exception:
+            pass
+            
+        return False
     
     # =========================================================================
     # Notebook Operations (matching MCP signatures)

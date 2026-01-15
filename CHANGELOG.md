@@ -1,6 +1,15 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.1.4] - 2026-01-14
+
+### Added
+- **Auto-Authentication**: Ported robust 3-layer authentication recovery from `notebooklm-mcp`.
+  - Layer 1: Automatic CSRF/Session ID refresh.
+  - Layer 2: Automatic reload of tokens from disk if updated externally.
+  - Layer 3: Headless Chrome authentication if profile has saved login.
+- Added `auth_refresh.py` module for handling headless auth.
+
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).

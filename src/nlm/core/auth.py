@@ -90,9 +90,9 @@ class AuthManager:
         """Check if the profile exists."""
         return self.cookies_file.exists()
 
-    def load_profile(self) -> Profile:
+    def load_profile(self, force_reload: bool = False) -> Profile:
         """Load the current profile from disk."""
-        if self._profile is not None:
+        if self._profile is not None and not force_reload:
             return self._profile
         
         if not self.profile_exists():
