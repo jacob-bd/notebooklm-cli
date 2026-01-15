@@ -62,19 +62,11 @@ def is_profile_locked() -> bool:
     return lock_file.exists()
 
 
-def launch_chrome(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> bool:
-    """Launch Chrome with remote debugging enabled.
-    
-    Args:
-        port: The debugging port to use
-        headless: If True, launch in headless mode (no visible window)
-    
-    Returns:
-        True if Chrome was launched successfully
-    """
+def launch_chrome_process(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> subprocess.Popen | None:
+    """Launch Chrome and return process handle."""
     chrome_path = get_chrome_path()
     if not chrome_path:
-        return False
+        return None
     
     profile_dir = get_chrome_profile_dir()
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -93,16 +85,21 @@ def launch_chrome(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> bool:
         args.append("--headless=new")
     
     try:
-        subprocess.Popen(
+        process = subprocess.Popen(
             args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
         # Wait for Chrome to start
         time.sleep(3)
-        return True
+        return process
     except Exception:
-        return False
+        return None
+
+
+def launch_chrome(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> bool:
+    """Launch Chrome with remote debugging enabled."""
+    return launch_chrome_process(port, headless) is not None
 
 
 def get_debugger_url(port: int = CDP_DEFAULT_PORT) -> str | None:

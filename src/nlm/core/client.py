@@ -23,6 +23,7 @@ from nlm.core.exceptions import (
     NLMError,
 )
 from nlm.core.auth_refresh import has_fresher_tokens_on_disk, run_headless_auth
+from nlm.core import constants
 
 
 # ============================================================================
@@ -82,119 +83,6 @@ class RPC:
     LIST_MIND_MAPS = "cFji9"
     DELETE_MIND_MAP = "AH0mwd"
 
-
-# ============================================================================
-# Type constants (ported from MCP)
-# ============================================================================
-
-class StudioType:
-    """Studio content type codes."""
-    AUDIO = 1
-    REPORT = 2
-    VIDEO = 3
-    FLASHCARDS = 4
-    INFOGRAPHIC = 7
-    SLIDE_DECK = 8
-    DATA_TABLE = 9
-
-
-class AudioFormat:
-    """Audio overview format codes."""
-    DEEP_DIVE = 1
-    BRIEF = 2
-    CRITIQUE = 3
-    DEBATE = 4
-
-
-class AudioLength:
-    """Audio overview length codes."""
-    SHORT = 1
-    DEFAULT = 2
-    LONG = 3
-
-
-class VideoFormat:
-    """Video overview format codes."""
-    EXPLAINER = 1
-    BRIEF = 2
-
-
-class VideoStyle:
-    """Video visual style codes."""
-    AUTO_SELECT = 1
-    CUSTOM = 2
-    CLASSIC = 3
-    WHITEBOARD = 4
-    KAWAII = 5
-    ANIME = 6
-    WATERCOLOR = 7
-    RETRO_PRINT = 8
-    HERITAGE = 9
-    PAPER_CRAFT = 10
-
-
-class ChatGoal:
-    """Chat goal/style codes."""
-    DEFAULT = 1
-    CUSTOM = 2
-    LEARNING_GUIDE = 3
-
-
-class ChatResponseLength:
-    """Chat response length codes."""
-    DEFAULT = 1
-    LONGER = 4
-    SHORTER = 5
-
-
-class ResearchSource:
-    """Research source type codes."""
-    WEB = 1
-    DRIVE = 2
-
-
-class ResearchMode:
-    """Research mode codes."""
-    FAST = 1
-    DEEP = 5
-
-
-class InfographicOrientation:
-    """Infographic orientation codes."""
-    LANDSCAPE = 1
-    PORTRAIT = 2
-    SQUARE = 3
-
-
-class InfographicDetail:
-    """Infographic detail level codes."""
-    CONCISE = 1
-    STANDARD = 2
-    DETAILED = 3
-
-
-class SlideDeckFormat:
-    """Slide deck format codes."""
-    DETAILED = 1
-    PRESENTER = 2
-
-
-class SlideDeckLength:
-    """Slide deck length codes."""
-    SHORT = 1
-    DEFAULT = 3
-
-
-class FlashcardDifficulty:
-    """Flashcard difficulty codes."""
-    EASY = 1
-    MEDIUM = 2
-    HARD = 3
-
-
-# ============================================================================
-# Data classes (matching MCP signatures)
-# ============================================================================
 
 @dataclass
 class ConversationTurn:
@@ -285,7 +173,7 @@ def _parse_notebook_data(nb_data: list) -> Notebook | None:
     
     if len(nb_data) > 5 and isinstance(nb_data[5], list) and len(nb_data[5]) > 0:
         metadata = nb_data[5]
-        is_owned = metadata[0] == OWNERSHIP_MINE
+        is_owned = metadata[0] == constants.OWNERSHIP_MINE
         if len(metadata) > 1:
             is_shared = bool(metadata[1])
         if len(metadata) > 5:
@@ -309,14 +197,7 @@ def _parse_notebook_data(nb_data: list) -> Notebook | None:
                     metadata = src[2]
                     if len(metadata) > 4:
                         type_code = metadata[4]
-                        type_map = {
-                            1: "drive",
-                            4: "text",
-                            5: "url",
-                            8: "file",
-                            9: "youtube",
-                        }
-                        source_type = type_map.get(type_code, "unknown")
+                        source_type = constants.SOURCE_TYPES.get_name(type_code)
                     
                     # Extract URL (index 7)
                     # For web/youtube: metadata[7] -> ["https://..."]
@@ -923,15 +804,7 @@ class NotebookLMClient:
                     # Source type code is at position 4
                     if len(metadata) > 4:
                         type_code = metadata[4]
-                        type_names = {
-                            4: "text",
-                            5: "url",
-                            9: "youtube",
-                            1: "url_legacy", 
-                            2: "text_legacy",
-                            3: "drive"
-                        }
-                        source_type = type_names.get(type_code, f"type_{type_code}")
+                        source_type = constants.SOURCE_TYPES.get_name(type_code)
                     
                     # URL might be at position 7 for web sources
                     if len(metadata) > 7 and isinstance(metadata[7], list):
@@ -984,7 +857,8 @@ class NotebookLMClient:
             # Check freshness for potential Drive sources
             # Only check explicit 'drive' type per user request
             stype = s.get("type", "unknown")
-            if stype not in ["drive", "url_legacy"]:
+            valid_drive_types = ["google_docs", "google_slides_sheets", "pdf", "drive"]
+            if stype not in valid_drive_types:
                 continue
                 
             # check_source_freshness returns True if fresh (not stale)
@@ -1043,11 +917,8 @@ class NotebookLMClient:
         response_length: str = "default",
     ) -> dict[str, Any]:
         """Configure notebook chat settings."""
-        goal_codes = {"default": 1, "custom": 2, "learning_guide": 3}
-        length_codes = {"default": 1, "longer": 4, "shorter": 5}
-        
-        goal_code = goal_codes.get(goal, 1)
-        length_code = length_codes.get(response_length, 1)
+        goal_code = constants.CHAT_GOALS.get_code(goal)
+        length_code = constants.CHAT_RESPONSE_LENGTHS.get_code(response_length)
         
         if goal == "custom" and custom_prompt:
             goal_setting = [goal_code, custom_prompt]
@@ -1094,23 +965,13 @@ class NotebookLMClient:
             raise NLMError("No sources in notebook. Add sources before creating audio.")
         
         # Convert string format to code
+        # Convert string format to code
         if format_code is None:
-            format_map = {
-                "deep_dive": AudioFormat.DEEP_DIVE,
-                "brief": AudioFormat.BRIEF,
-                "critique": AudioFormat.CRITIQUE,
-                "debate": AudioFormat.DEBATE,
-            }
-            format_code = format_map.get(format.lower(), AudioFormat.DEEP_DIVE)
+            format_code = constants.AUDIO_FORMATS.get_code(format)
         
         # Convert string length to code
         if length_code is None:
-            length_map = {
-                "short": AudioLength.SHORT,
-                "default": AudioLength.DEFAULT,
-                "long": AudioLength.LONG,
-            }
-            length_code = length_map.get(length.lower(), AudioLength.DEFAULT)
+            length_code = constants.AUDIO_LENGTHS.get_code(length)
         
         sources_nested = [[[sid]] for sid in source_ids]
         sources_simple = [[sid] for sid in source_ids]  # For audio_options
@@ -1132,7 +993,7 @@ class NotebookLMClient:
         params = [
             [2],
             notebook_id,
-            [None, None, StudioType.AUDIO, sources_nested, None, None, audio_options]
+            [None, None, constants.STUDIO_TYPE_AUDIO, sources_nested, None, None, audio_options]
         ]
         
         result = self._call_rpc(RPC.CREATE_STUDIO, params, f"/notebook/{notebook_id}")
@@ -1170,12 +1031,12 @@ class NotebookLMClient:
             raise NLMError("No sources in notebook. Add sources before creating video.")
         
         # Convert string format to code
+        # Convert string format to code
         if format_code is None:
-            format_map = {"explainer": VideoFormat.EXPLAINER, "brief": VideoFormat.BRIEF}
-            format_code = format_map.get(format.lower(), VideoFormat.EXPLAINER)
+            format_code = constants.VIDEO_FORMATS.get_code(format)
         
         if visual_style_code is None:
-            visual_style_code = VideoStyle.AUTO_SELECT
+            visual_style_code = constants.VIDEO_STYLES.get_code(visual_style)
         
         sources_nested = [[[sid]] for sid in source_ids]
         sources_simple = [[sid] for sid in source_ids]  # For video_options
@@ -1196,7 +1057,7 @@ class NotebookLMClient:
         params = [
             [2],
             notebook_id,
-            [None, None, StudioType.VIDEO, sources_nested, None, None, None, None, video_options]
+            [None, None, constants.STUDIO_TYPE_VIDEO, sources_nested, None, None, None, None, video_options]
         ]
         
         result = self._call_rpc(RPC.CREATE_STUDIO, params, f"/notebook/{notebook_id}")
@@ -1276,7 +1137,7 @@ class NotebookLMClient:
         params = [
             [2],
             notebook_id,
-            [None, None, StudioType.REPORT, sources_nested, None, None, None, report_options]
+            [None, None, constants.STUDIO_TYPE_REPORT, sources_nested, None, None, None, report_options]
         ]
         
         result = self._call_rpc(RPC.CREATE_STUDIO, params, f"/notebook/{notebook_id}")
@@ -1322,7 +1183,7 @@ class NotebookLMClient:
         
         content = [
             None, None,
-            StudioType.FLASHCARDS,  # Type 4 (shared with flashcards)
+            constants.STUDIO_TYPE_FLASHCARDS,  # Type 4 (shared with flashcards)
             sources_nested,
             None, None, None, None, None,
             quiz_options  # position 9
@@ -1358,8 +1219,7 @@ class NotebookLMClient:
             from nlm.core.exceptions import NLMError
             raise NLMError("No sources in notebook. Add sources before creating flashcards.")
         
-        diff_map = {"easy": FlashcardDifficulty.EASY, "medium": FlashcardDifficulty.MEDIUM, "hard": FlashcardDifficulty.HARD}
-        diff_code = diff_map.get(difficulty.lower(), FlashcardDifficulty.MEDIUM)
+        diff_code = constants.FLASHCARD_DIFFICULTIES.get_code(difficulty)
         
         sources_nested = [[[sid]] for sid in source_ids]
         
@@ -1375,7 +1235,7 @@ class NotebookLMClient:
         
         content = [
             None, None,
-            StudioType.FLASHCARDS,
+            constants.STUDIO_TYPE_FLASHCARDS,
             sources_nested,
             None, None, None, None, None,  # 5 nulls (positions 4-8)
             flashcard_options  # position 9
@@ -1504,10 +1364,8 @@ class NotebookLMClient:
             from nlm.core.exceptions import NLMError
             raise NLMError("No sources in notebook. Add sources before creating slides.")
         
-        format_map = {"detailed": SlideDeckFormat.DETAILED, "presenter": SlideDeckFormat.PRESENTER}
-        length_map = {"short": SlideDeckLength.SHORT, "default": SlideDeckLength.DEFAULT}
-        format_code = format_map.get(format.lower(), SlideDeckFormat.DETAILED)
-        length_code = length_map.get(length.lower(), SlideDeckLength.DEFAULT)
+        format_code = constants.SLIDE_DECK_FORMATS.get_code(format)
+        length_code = constants.SLIDE_DECK_LENGTHS.get_code(length)
         
         sources_nested = [[[sid]] for sid in source_ids]
         
@@ -1516,7 +1374,7 @@ class NotebookLMClient:
         
         content = [
             None, None,
-            StudioType.SLIDE_DECK,
+            constants.STUDIO_TYPE_SLIDE_DECK,
             sources_nested,
             None, None, None, None, None, None, None, None, None, None, None, None,  # 12 nulls (positions 4-15)
             slide_deck_options  # position 16
@@ -1555,10 +1413,8 @@ class NotebookLMClient:
             from nlm.core.exceptions import NLMError
             raise NLMError("No sources in notebook. Add sources before creating infographic.")
         
-        orient_map = {"landscape": InfographicOrientation.LANDSCAPE, "portrait": InfographicOrientation.PORTRAIT, "square": InfographicOrientation.SQUARE}
-        detail_map = {"concise": InfographicDetail.CONCISE, "standard": InfographicDetail.STANDARD, "detailed": InfographicDetail.DETAILED}
-        orient_code = orient_map.get(orientation.lower(), InfographicOrientation.LANDSCAPE)
-        detail_code = detail_map.get(detail_level.lower(), InfographicDetail.STANDARD)
+        orient_code = constants.INFOGRAPHIC_ORIENTATIONS.get_code(orientation)
+        detail_code = constants.INFOGRAPHIC_DETAILS.get_code(detail_level)
         
         sources_nested = [[[sid]] for sid in source_ids]
         
@@ -1567,7 +1423,7 @@ class NotebookLMClient:
         
         content = [
             None, None,
-            StudioType.INFOGRAPHIC,
+            constants.STUDIO_TYPE_INFOGRAPHIC,
             sources_nested,
             None, None, None, None, None, None, None, None, None, None,  # 10 nulls (positions 4-13)
             infographic_options  # position 14
@@ -1611,7 +1467,7 @@ class NotebookLMClient:
         
         content = [
             None, None,
-            StudioType.DATA_TABLE,  # Type 9
+            constants.STUDIO_TYPE_DATA_TABLE,  # Type 9
             sources_nested,
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,  # 14 nulls (positions 4-17)
             datatable_options  # position 18
@@ -1763,13 +1619,14 @@ class NotebookLMClient:
         mode: str = "fast",
     ) -> dict | None:
         """Start a research session to discover sources."""
-        source_type = ResearchSource.WEB if source.lower() == "web" else ResearchSource.DRIVE
+        source_code = constants.RESEARCH_SOURCES.get_code(source)
+        mode_code = constants.RESEARCH_MODES.get_code(mode)
         
-        if mode.lower() == "fast":
-            params = [[query, source_type], None, 1, notebook_id]
+        if mode_code == constants.RESEARCH_MODE_FAST:
+            params = [[query, source_code], None, constants.RESEARCH_MODE_FAST, notebook_id]
             rpc_id = RPC.START_FAST_RESEARCH
         else:
-            params = [None, [1], [query, source_type], 5, notebook_id]
+            params = [None, [1], [query, source_code], constants.RESEARCH_MODE_DEEP, notebook_id]
             rpc_id = RPC.START_DEEP_RESEARCH
         
         result = self._call_rpc(rpc_id, params, f"/notebook/{notebook_id}")

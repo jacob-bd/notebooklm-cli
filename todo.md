@@ -12,6 +12,8 @@
 - [x] **Legacy login removed**: `--legacy` mode used browser-cookie3 which reads stale cookies from Chrome's SQLite. CDP is the only reliable method.
 - [x] **Branding**: Added a new futuristic/cyberpunk logo to the README.
 - [x] **Documentation**: Complete README rewrite with comprehensive installation, commands, AI integration, aliases, and proper docs links.
+- [x] **Auto-Authentication Recovery**: Implemented robust 3-layer recovery (token refresh, disk reload, headless Chrome).
+- [x] **Refactoring**: Ported `CodeMapper` constants from `notebooklm-mcp` and centralized in `constants.py`.
 
 ## 🔴 Open Items
 

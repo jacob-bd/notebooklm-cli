@@ -23,6 +23,7 @@ from nlm.utils.cdp import (
     is_logged_in,
     is_profile_locked,
     launch_chrome,
+    launch_chrome_process,
     extract_csrf_token,
     extract_session_id,
     navigate_to_url,
@@ -115,7 +116,7 @@ def run_headless_auth(port: int = 9223, timeout: int = 30) -> dict[str, Any] | N
         # We should modify cdp.launch_chrome or create a local version.
         # For now, we'll create a local version that returns the process.
         
-        chrome_process = _launch_chrome_process(port, headless=True)
+        chrome_process = launch_chrome_process(port, headless=True)
         if not chrome_process:
             return None
             
@@ -181,36 +182,4 @@ def run_headless_auth(port: int = 9223, timeout: int = 30) -> dict[str, Any] | N
                     pass
 
 
-def _launch_chrome_process(port: int, headless: bool = True) -> subprocess.Popen | None:
-    """Launch Chrome and return process handle (local helper)."""
-    chrome_path = get_chrome_path()
-    if not chrome_path:
-        return None
-        
-    from nlm.utils.cdp import get_chrome_profile_dir
-    profile_dir = get_chrome_profile_dir()
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    
-    args = [
-        chrome_path,
-        f"--remote-debugging-port={port}",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-extensions",
-        f"--user-data-dir={profile_dir}",
-        "--remote-allow-origins=*",
-    ]
-    
-    if headless:
-        args.append("--headless=new")
-        
-    try:
-        process = subprocess.Popen(
-            args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        time.sleep(2)
-        return process
-    except Exception:
-        return None
+

@@ -1,7 +1,7 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-## [0.1.4] - 2026-01-14
+## [0.1.4] - 2026-01-19
 
 ### Added
 - **Auto-Authentication**: Ported robust 3-layer authentication recovery from `notebooklm-mcp`.
@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file.
   - Layer 2: Automatic reload of tokens from disk if updated externally.
   - Layer 3: Headless Chrome authentication if profile has saved login.
 - Added `auth_refresh.py` module for handling headless auth.
+
+### Changed
+- Refactored `client.py` to use `CodeMapper` pattern and centralized `constants.py` for better maintainability (Issue #3).
 
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
