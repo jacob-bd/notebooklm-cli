@@ -14,6 +14,7 @@
 - [x] **Documentation**: Complete README rewrite with comprehensive installation, commands, AI integration, aliases, and proper docs links.
 - [x] **Auto-Authentication Recovery**: Implemented robust 3-layer recovery (token refresh, disk reload, headless Chrome).
 - [x] **Refactoring**: Ported `CodeMapper` constants from `notebooklm-mcp` and centralized in `constants.py`.
+- [x] **Config CLI**: Implemented `nlm config` commands (show, get, set).
 
 ## 🔴 Open Items
 

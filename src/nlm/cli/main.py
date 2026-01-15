@@ -12,6 +12,7 @@ from nlm.cli.notebook import app as notebook_app
 from nlm.cli.research import app as research_app
 from nlm.cli.source import app as source_app
 from nlm.cli.alias import app as alias_app
+from nlm.cli.config import app as config_app
 from nlm.cli.studio import (
     app as studio_app,
     audio_app,
@@ -42,6 +43,7 @@ app.add_typer(chat_app, name="chat", help="Configure chat settings")
 app.add_typer(studio_app, name="studio", help="Manage studio artifacts")
 app.add_typer(research_app, name="research", help="Research and discover sources")
 app.add_typer(alias_app, name="alias", help="Manage ID aliases")
+app.add_typer(config_app, name="config", help="Manage configuration")
 
 # Generation commands as top-level
 app.add_typer(audio_app, name="audio", help="Create audio overviews")

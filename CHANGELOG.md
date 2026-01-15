@@ -1,7 +1,15 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
-## [0.1.4] - 2026-01-19
+## [0.1.5] - 2026-01-15
+
+### Added
+- **Config CLI**: New `nlm config` command group to view and edit configuration.
+  - `nlm config show`: Display current config (TOML/JSON).
+  - `nlm config get <key>`: specific setting.
+  - `nlm config set <key> <value>`: Update setting.
+
+## [0.1.4] - 2026-01-15
 
 ### Added
 - **Auto-Authentication**: Ported robust 3-layer authentication recovery from `notebooklm-mcp`.
