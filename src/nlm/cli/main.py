@@ -179,7 +179,7 @@ def login(
     except NLMError as e:
         console.print(f"\n[red]Error:[/red] {e.message}")
         if e.hint:
-            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
+            console.print(f"\\n[dim]Hint: {e.hint}[/dim]")
         raise typer.Exit(1)
 
 

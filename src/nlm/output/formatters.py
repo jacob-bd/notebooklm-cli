@@ -228,18 +228,25 @@ class TableFormatter(Formatter):
                 art_title = getattr(art, 'title', '')
                 art_url = getattr(art, 'url', '')
             
-            status_style = {
-                'completed': 'green',
-                'pending': 'yellow',
-                'in_progress': 'yellow',
-                'failed': 'red',
-            }.get(art_status, '')
+            # Status with color and Unicode symbol for quick scanning
+            status_config = {
+                'completed': ('green', '✓'),
+                'pending': ('yellow', '●'),
+                'in_progress': ('yellow', '●'),
+                'failed': ('red', '✗'),
+            }
+            
+            if art_status in status_config:
+                style, symbol = status_config[art_status]
+                status_display = f'[{style}]{symbol} {art_status}[/{style}]'
+            else:
+                status_display = art_status
             
             row = [
                 art_id,
                 art_title or '-',
                 art_type,
-                f'[{status_style}]{art_status}[/{status_style}]' if status_style else art_status,
+                status_display,
             ]
             if full:
                 row.append(art_url or '-')

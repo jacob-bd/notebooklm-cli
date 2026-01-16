@@ -24,7 +24,36 @@ from nlm.core.exceptions import AuthenticationError
 
 
 CDP_DEFAULT_PORT = 9222
+CDP_PORT_RANGE = range(9222, 9232)  # Ports to scan for existing/available
 NOTEBOOKLM_URL = "https://notebooklm.google.com/"
+
+
+def find_available_port(starting_from: int = 9222, max_attempts: int = 10) -> int:
+    """Find an available port for Chrome debugging.
+    
+    Args:
+        starting_from: Port to start scanning from
+        max_attempts: Number of ports to try
+    
+    Returns:
+        An available port number
+    
+    Raises:
+        RuntimeError: If no available ports found
+    """
+    import socket
+    for offset in range(max_attempts):
+        port = starting_from + offset
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('localhost', port))
+                return port
+        except OSError:
+            continue
+    raise RuntimeError(
+        f"No available ports in range {starting_from}-{starting_from + max_attempts - 1}. "
+        "Close some applications and try again."
+    )
 
 
 def get_chrome_path() -> str | None:
@@ -62,6 +91,26 @@ def is_profile_locked() -> bool:
     return lock_file.exists()
 
 
+def find_existing_nlm_chrome(port_range: range = CDP_PORT_RANGE) -> int | None:
+    """Find an existing NLM Chrome instance on any port in range.
+    
+    Scans the port range looking for a Chrome DevTools endpoint.
+    This allows reconnecting to an existing auth Chrome window.
+    
+    Returns:
+        The port number if found, None otherwise
+    """
+    for port in port_range:
+        try:
+            response = httpx.get(f"http://localhost:{port}/json/version", timeout=2)
+            if response.status_code == 200:
+                # Found a Chrome DevTools endpoint
+                return port
+        except Exception:
+            continue
+    return None
+
+
 def launch_chrome_process(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> subprocess.Popen | None:
     """Launch Chrome and return process handle."""
     chrome_path = get_chrome_path()
@@ -97,14 +146,16 @@ def launch_chrome_process(port: int = CDP_DEFAULT_PORT, headless: bool = False) 
         return None
 
 
-# Module-level Chrome process handle for termination
+# Module-level Chrome state for termination and reconnection
 _chrome_process: subprocess.Popen | None = None
+_chrome_port: int | None = None
 
 
 def launch_chrome(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> bool:
     """Launch Chrome with remote debugging enabled."""
-    global _chrome_process
+    global _chrome_process, _chrome_port
     _chrome_process = launch_chrome_process(port, headless)
+    _chrome_port = port if _chrome_process else None
     return _chrome_process is not None
 
 
@@ -319,19 +370,35 @@ def extract_cookies_via_cdp(
         AuthenticationError: If extraction fails
     """
     # Check if Chrome is running with debugging
-    debugger_url = get_debugger_url(port)
+    # First, try to find an existing instance on any port in our range
+    existing_port = find_existing_nlm_chrome()
+    if existing_port:
+        port = existing_port
+        debugger_url = get_debugger_url(port)
+    else:
+        debugger_url = None
     
     if not debugger_url and auto_launch:
         if is_profile_locked():
+            # Profile locked but no Chrome found on known ports - stale lock?
             raise AuthenticationError(
-                message="The NLM auth profile is already in use",
-                hint="Close the previous auth Chrome window and try again.",
+                message="The NLM auth profile is locked but no Chrome instance found",
+                hint="Close any stuck Chrome processes or delete ~/.nlm/chrome-profile/SingletonLock",
             )
         
         if not get_chrome_path():
             raise AuthenticationError(
                 message="Chrome not found",
                 hint="Install Google Chrome or use 'nlm login --manual' to import cookies from a file.",
+            )
+        
+        # Find an available port
+        try:
+            port = find_available_port()
+        except RuntimeError as e:
+            raise AuthenticationError(
+                message=str(e),
+                hint="Close some Chrome instances and try again.",
             )
         
         if not launch_chrome(port):

@@ -4,6 +4,7 @@ from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from nlm.core.alias import get_alias_manager
 from nlm.core.client import NotebookLMClient
@@ -164,15 +165,21 @@ def create_audio(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_audio(
-                notebook_id,
-                format=format,
-                length=length,
-                language=language,
-                focus_prompt=focus,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating audio...", total=None)
+            with get_client(profile) as client:
+                result = client.create_audio(
+                    notebook_id,
+                    format=format,
+                    length=length,
+                    language=language,
+                    focus_prompt=focus,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Audio generation started")
         if result:
@@ -211,14 +218,20 @@ def create_report(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_report(
-                notebook_id,
-                report_format=format,
-                custom_prompt=prompt,
-                language=language,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating report...", total=None)
+            with get_client(profile) as client:
+                result = client.create_report(
+                    notebook_id,
+                    report_format=format,
+                    custom_prompt=prompt,
+                    language=language,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Report generation started")
         if result:
@@ -248,13 +261,19 @@ def create_quiz(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_quiz(
-                notebook_id,
-                question_count=count,
-                difficulty=difficulty,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating quiz...", total=None)
+            with get_client(profile) as client:
+                result = client.create_quiz(
+                    notebook_id,
+                    question_count=count,
+                    difficulty=difficulty,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Quiz generation started")
         if result:
@@ -283,12 +302,18 @@ def create_flashcards(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_flashcards(
-                notebook_id,
-                difficulty=difficulty,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating flashcards...", total=None)
+            with get_client(profile) as client:
+                result = client.create_flashcards(
+                    notebook_id,
+                    difficulty=difficulty,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Flashcards generation started")
         if result:
@@ -317,12 +342,18 @@ def create_mindmap(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_mindmap(
-                notebook_id,
-                title=title,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating mind map...", total=None)
+            with get_client(profile) as client:
+                result = client.create_mindmap(
+                    notebook_id,
+                    title=title,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Mind map created")
         if result:
@@ -357,15 +388,21 @@ def create_slides(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_slides(
-                notebook_id,
-                format=format,
-                length=length,
-                language=language,
-                focus_prompt=focus,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating slides...", total=None)
+            with get_client(profile) as client:
+                result = client.create_slides(
+                    notebook_id,
+                    format=format,
+                    length=length,
+                    language=language,
+                    focus_prompt=focus,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Slide deck generation started")
         if result:
@@ -397,15 +434,21 @@ def create_infographic(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_infographic(
-                notebook_id,
-                orientation=orientation,
-                detail_level=detail,
-                language=language,
-                focus_prompt=focus,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating infographic...", total=None)
+            with get_client(profile) as client:
+                result = client.create_infographic(
+                    notebook_id,
+                    orientation=orientation,
+                    detail_level=detail,
+                    language=language,
+                    focus_prompt=focus,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Infographic generation started")
         if result:
@@ -440,15 +483,21 @@ def create_video(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_video(
-                notebook_id,
-                format=format,
-                visual_style=style,
-                language=language,
-                focus_prompt=focus,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating video...", total=None)
+            with get_client(profile) as client:
+                result = client.create_video(
+                    notebook_id,
+                    format=format,
+                    visual_style=style,
+                    language=language,
+                    focus_prompt=focus,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Video generation started")
         if result:
@@ -478,13 +527,19 @@ def create_data_table(
     
     try:
         notebook_id = get_alias_manager().resolve(notebook_id)
-        with get_client(profile) as client:
-            result = client.create_data_table(
-                notebook_id,
-                description=description,
-                language=language,
-                source_ids=parse_source_ids(source_ids),
-            )
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Creating data table...", total=None)
+            with get_client(profile) as client:
+                result = client.create_data_table(
+                    notebook_id,
+                    description=description,
+                    language=language,
+                    source_ids=parse_source_ids(source_ids),
+                )
         
         console.print(f"[green]✓[/green] Data table generation started")
         if result:

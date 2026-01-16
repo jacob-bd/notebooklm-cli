@@ -158,6 +158,8 @@ nlm notebook query <id> "question" --source-ids <id1,id2>
 nlm source list <notebook-id>          # List sources
 nlm source list <notebook-id> --full   # Full details
 nlm source list <notebook-id> --url    # "ID: URL" format
+nlm source list <notebook-id> --drive  # Show Drive sources with freshness
+nlm source list <notebook-id> --drive --skip-freshness  # Faster, skip freshness checks
 
 nlm source add <notebook-id> --url "https://..."           # Add URL
 nlm source add <notebook-id> --url "https://youtube.com/..." # Add YouTube
@@ -171,6 +173,7 @@ nlm source get <source-id>             # Get source metadata
 nlm source describe <source-id>        # AI summary + keywords
 
 nlm source content <source-id>         # Raw text content
+nlm source content <source-id> --output file.txt  # Export to file
 
 nlm source delete <source-id> --confirm  # Delete source
 

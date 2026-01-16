@@ -28,6 +28,7 @@ def list_sources(
     notebook_id: str = typer.Argument(..., help="Notebook ID"),
     full: bool = typer.Option(False, "--full", "-a", help="Show all columns"),
     drive: bool = typer.Option(False, "--drive", "-d", help="Show Drive sources with freshness status"),
+    skip_freshness: bool = typer.Option(False, "--skip-freshness", "-S", help="Skip freshness checks (faster, use with --drive)"),
     json_output: bool = typer.Option(False, "--json", "-j", help="Output as JSON"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Output IDs only"),
     url: bool = typer.Option(False, "--url", "-u", help="Output as ID: URL"),
@@ -38,7 +39,7 @@ def list_sources(
         notebook_id = get_alias_manager().resolve(notebook_id)
         with get_client(profile) as client:
             if drive:
-                sources = client.list_drive_sources(notebook_id)
+                sources = client.list_drive_sources(notebook_id, check_freshness=not skip_freshness)
             else:
                 sources = client.list_sources(notebook_id)
         
@@ -155,6 +156,7 @@ def describe_source(
 @app.command("content")
 def get_source_content(
     source_id: str = typer.Argument(..., help="Source ID"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Write content to file"),
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
 ) -> None:
     """Get raw source content (no AI processing)."""
@@ -163,11 +165,18 @@ def get_source_content(
         with get_client(profile) as client:
             content = client.get_source_content(source_id)
         
-        console.print(f"[bold]Title:[/bold] {content.title}")
-        console.print(f"[bold]Type:[/bold] {content.source_type}")
-        console.print(f"[bold]Characters:[/bold] {content.char_count:,}")
-        console.print("\n[bold]Content:[/bold]")
-        console.print(content.content)
+        if output:
+            # Write raw content to file
+            from pathlib import Path
+            Path(output).write_text(content.content)
+            console.print(f"[green]✓[/green] Wrote {content.char_count:,} characters to {output}")
+        else:
+            # Display to console
+            console.print(f"[bold]Title:[/bold] {content.title}")
+            console.print(f"[bold]Type:[/bold] {content.source_type}")
+            console.print(f"[bold]Characters:[/bold] {content.char_count:,}")
+            console.print("\n[bold]Content:[/bold]")
+            console.print(content.content)
     except NLMError as e:
         console.print(f"[red]Error:[/red] {e.message}")
         if e.hint:

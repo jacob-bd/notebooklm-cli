@@ -860,8 +860,14 @@ class NotebookLMClient:
         result = self._call_rpc(RPC.DELETE_SOURCE, params)
         return result is not None
     
-    def list_drive_sources(self, notebook_id: str) -> list[DriveSource]:
-        """List all Drive sources and their freshness status."""
+    def list_drive_sources(self, notebook_id: str, check_freshness: bool = True) -> list[DriveSource]:
+        """List all Drive sources and their freshness status.
+        
+        Args:
+            notebook_id: The notebook to list Drive sources from.
+            check_freshness: If True (default), check freshness for each source.
+                           If False, skip freshness checks for faster listing.
+        """
         sources = self.list_sources(notebook_id)
         drive_sources = []
         
@@ -872,13 +878,16 @@ class NotebookLMClient:
             valid_drive_types = ["google_docs", "google_slides_sheets", "pdf", "drive"]
             if stype not in valid_drive_types:
                 continue
-                
-            # check_source_freshness returns True if fresh (not stale)
-            is_fresh = self.check_source_freshness(s["id"])
             
-            # If explicit False, it's stale. If None/True, assume fresh.
-            # (Conservatively only report stale if we are sure)
-            is_stale = (is_fresh is False)
+            # Determine staleness
+            if check_freshness:
+                # check_source_freshness returns True if fresh (not stale)
+                is_fresh = self.check_source_freshness(s["id"])
+                # If explicit False, it's stale. If None/True, assume fresh.
+                is_stale = (is_fresh is False)
+            else:
+                # Skip freshness check - assume unknown (not stale)
+                is_stale = False
             
             drive_sources.append(DriveSource(
                 id=s["id"],

@@ -150,6 +150,8 @@ This prints a 380+ line guide covering:
 | Command | Description |
 |---------|-------------|
 | `nlm source list <notebook-id>` | List sources in a notebook |
+| `nlm source list <notebook-id> --drive` | Show Drive sources with freshness |
+| `nlm source list <notebook-id> --drive -S` | Faster listing, skip freshness checks |
 | `nlm source add <id> --url "..."` | Add URL or YouTube source |
 | `nlm source add <id> --text "..." --title "..."` | Add pasted text |
 | `nlm source add <id> --drive <doc-id>` | Add Google Drive document |
@@ -229,6 +231,20 @@ nlm auth delete work --confirm
 
 ---
 
+## ⌨️ Shell Completion
+
+Enable tab completion for faster command entry:
+
+```bash
+# Auto-install for your current shell
+nlm --install-completion
+
+# Or show the completion script to install manually
+nlm --show-completion
+```
+
+---
+
 ## ⚠️ Session Lifetime
 
 NotebookLM sessions typically last **~20 minutes**. If commands start failing with authentication errors, simply re-run:
@@ -263,17 +279,13 @@ For AI assistants, run `nlm --ai` to get the full command reference.
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ```bash
-# Clone the repo
+# Quick start for contributors
 git clone https://github.com/jacob-bd/notebooklm-cli.git
 cd notebooklm-cli
-
-# Install in development mode
 uv pip install -e ".[dev]"
-
-# Run tests
 uv run pytest
 ```
 

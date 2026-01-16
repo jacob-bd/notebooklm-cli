@@ -1,6 +1,28 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+
+## [0.1.7] - 2026-01-16
+
+### Added
+- **Performance**: Added `--skip-freshness/-S` flag to `nlm source list --drive`.
+  - Skips N+1 HTTP requests for freshness checks, significantly faster for notebooks with many Drive sources.
+- **Export**: Added `--output/-o` flag to `nlm source content` to export source text directly to file.
+- **Developer Docs**: Added `CONTRIBUTING.md` with development setup, code style, testing, and PR guidelines.
+- **Shell Completion**: Documented `nlm --install-completion` for tab completion setup.
+
+### Changed
+- **UX**: Generation commands now show progress spinners during API calls (audio, report, quiz, flashcards, mindmap, slides, infographic, video, data-table).
+- **UX**: Artifact status table now uses Unicode symbols (✓, ●, ✗) for faster visual scanning.
+
+## [0.1.6] - 2026-01-16
+
+### Fixed
+- **Chrome Port Conflict**: `nlm login` now works when port 9222 is already in use (Issue #5).
+  - Automatically finds an available port in range 9222-9231.
+  - Reconnects to existing NLM auth Chrome if already running.
+  - Improved error messages for stale profile locks.
+
 ## [0.1.5] - 2026-01-15
 
 ### Added
