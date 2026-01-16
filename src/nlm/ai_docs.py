@@ -28,7 +28,8 @@ Output on success: `✓ Successfully authenticated!`
 ```bash
 nlm auth status
 ```
-Shows: `✓ Authenticated` or error if expired.
+Validates credentials by making a real API call (lists notebooks).
+Shows: `✓ Authenticated` with notebook count, or error if expired.
 
 ### Auto-Authentication Recovery (Automatic)
 The CLI includes 3-layer automatic recovery:

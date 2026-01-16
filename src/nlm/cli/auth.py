@@ -21,22 +21,50 @@ def status(
         help="Profile to check",
     ),
 ) -> None:
-    """Show authentication status and profile information."""
+    """Show authentication status and profile information.
+    
+    Validates credentials by making a real API call to list notebooks.
+    """
+    from nlm.core.client import NotebookLMClient
+    
     auth = AuthManager(profile)
     
     try:
         p = auth.load_profile()
-        console.print(f"[green]✓[/green] Authenticated")
-        console.print(f"  Email: {p.email or 'Unknown'}")
-        console.print(f"  Profile: {p.name}")
-        if p.last_validated:
-            console.print(f"  Last validated: {p.last_validated.strftime('%Y-%m-%d %H:%M')}")
-        console.print(f"  Credentials path: {auth.profile_dir}")
     except NLMError as e:
         console.print(f"[red]✗[/red] Not authenticated")
         console.print(f"  {e.message}")
         if e.hint:
             console.print(f"\n[dim]Hint: {e.hint}[/dim]")
+        raise typer.Exit(2)
+    
+    # Actually validate by making a real API call
+    console.print(f"[dim]Validating credentials for profile: {p.name}...[/dim]")
+    
+    try:
+        with NotebookLMClient(profile=profile) as client:
+            notebooks = client.list_notebooks()
+        
+        # Update last_validated timestamp
+        auth.save_profile(
+            cookies=p.cookies,
+            csrf_token=p.csrf_token,
+            session_id=p.session_id,
+            email=p.email,
+        )
+        
+        console.print(f"[green]✓[/green] Authenticated")
+        console.print(f"  Email: {p.email or 'Unknown'}")
+        console.print(f"  Profile: {p.name}")
+        console.print(f"  Notebooks accessible: {len(notebooks)}")
+        console.print(f"  Credentials path: {auth.profile_dir}")
+        
+    except NLMError as e:
+        console.print(f"[red]✗[/red] Authentication expired or invalid")
+        console.print(f"  {e.message}")
+        if e.hint:
+            console.print(f"\n[dim]Hint: {e.hint}[/dim]")
+        console.print(f"\n[dim]Run 'nlm login' to re-authenticate.[/dim]")
         raise typer.Exit(2)
 
 
