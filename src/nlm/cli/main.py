@@ -146,7 +146,7 @@ def login(
     console.print("[dim]Using Chrome DevTools Protocol[/dim]\n")
     
     try:
-        from nlm.utils.cdp import extract_cookies_via_cdp, extract_csrf_token, extract_session_id, get_page_html
+        from nlm.utils.cdp import extract_cookies_via_cdp, extract_csrf_token, extract_session_id, get_page_html, terminate_chrome
         
         console.print("Starting Chrome...")
         result = extract_cookies_via_cdp(
@@ -165,6 +165,10 @@ def login(
             csrf_token=csrf_token,
             session_id=session_id,
         )
+        
+        # Close Chrome to release profile lock (enables headless auth later)
+        console.print("[dim]Closing Chrome...[/dim]")
+        terminate_chrome()
         
         console.print(f"\n[green]✓[/green] Successfully authenticated!")
         console.print(f"  Profile: {profile}")

@@ -97,9 +97,40 @@ def launch_chrome_process(port: int = CDP_DEFAULT_PORT, headless: bool = False) 
         return None
 
 
+# Module-level Chrome process handle for termination
+_chrome_process: subprocess.Popen | None = None
+
+
 def launch_chrome(port: int = CDP_DEFAULT_PORT, headless: bool = False) -> bool:
     """Launch Chrome with remote debugging enabled."""
-    return launch_chrome_process(port, headless) is not None
+    global _chrome_process
+    _chrome_process = launch_chrome_process(port, headless)
+    return _chrome_process is not None
+
+
+def terminate_chrome() -> bool:
+    """Terminate the Chrome process launched by this module.
+    
+    This releases the profile lock so headless auth can work later.
+    
+    Returns:
+        True if Chrome was terminated, False if no process to terminate.
+    """
+    global _chrome_process
+    if _chrome_process is None:
+        return False
+    
+    try:
+        _chrome_process.terminate()
+        _chrome_process.wait(timeout=5)
+    except Exception:
+        try:
+            _chrome_process.kill()
+        except Exception:
+            pass
+    
+    _chrome_process = None
+    return True
 
 
 def get_debugger_url(port: int = CDP_DEFAULT_PORT) -> str | None:
