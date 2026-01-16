@@ -92,3 +92,19 @@ def configure_chat(
         if e.hint:
             console.print(f"\n[dim]Hint: {e.hint}[/dim]")
         raise typer.Exit(1)
+
+
+@app.command("start")
+def start_chat(
+    notebook_id: str = typer.Argument(..., help="Notebook ID"),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
+) -> None:
+    """
+    Start interactive chat session with a notebook.
+    
+    Enter a REPL where you can have multi-turn conversations.
+    Use /help for commands, /exit to quit.
+    """
+    from nlm.cli.repl import run_chat_repl
+    run_chat_repl(notebook_id, profile)
+

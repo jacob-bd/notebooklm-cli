@@ -1940,7 +1940,7 @@ class NotebookLMClient:
                 hint="Check your internet connection.",
             ) from e
         
-        answer = self._parse_query_response(response.text)
+        answer, citations = self._parse_query_response(response.text)
         
         if answer:
             self._cache_conversation_turn(conversation_id, query_text, answer)
@@ -1953,6 +1953,7 @@ class NotebookLMClient:
             "turn_number": len(turns),
             "is_follow_up": not is_new,
             "sources": used_sources,
+            "citations": citations,
         }
     
     def _extract_source_ids(self, notebook_data: Any) -> list[str]:
@@ -1978,12 +1979,18 @@ class NotebookLMClient:
                 pass
         return source_ids
     
-    def _parse_query_response(self, response_text: str) -> str:
-        """Parse streaming query response and extract answer."""
+    def _parse_query_response(self, response_text: str) -> tuple[str, dict[int, str]]:
+        """Parse streaming query response and extract answer with citations.
+        
+        Returns:
+            tuple: (answer_text, citations_dict) where citations_dict maps
+                   1-indexed citation numbers to source UUIDs.
+        """
         if response_text.startswith(")]}'"):
             response_text = response_text[4:]
         
         answer_parts = []
+        citations: dict[int, str] = {}
         lines = response_text.strip().split("\n")
         i = 0
         
@@ -1999,28 +2006,37 @@ class NotebookLMClient:
                 if i < len(lines):
                     try:
                         data = json.loads(lines[i])
-                        text, is_answer = self._extract_answer_text(data)
+                        text, is_answer, chunk_citations = self._extract_answer_text(data)
                         if text and is_answer:
                             answer_parts.append(text)
+                        if chunk_citations:
+                            citations.update(chunk_citations)
                     except json.JSONDecodeError:
                         pass
                 i += 1
             except ValueError:
                 try:
                     data = json.loads(line)
-                    text, is_answer = self._extract_answer_text(data)
+                    text, is_answer, chunk_citations = self._extract_answer_text(data)
                     if text and is_answer:
                         answer_parts.append(text)
+                    if chunk_citations:
+                        citations.update(chunk_citations)
                 except json.JSONDecodeError:
                     pass
                 i += 1
         
-        return answer_parts[-1] if answer_parts else ""
+        return answer_parts[-1] if answer_parts else "", citations
     
-    def _extract_answer_text(self, data: Any) -> tuple[str, bool]:
-        """Extract answer text from query response chunk."""
+    def _extract_answer_text(self, data: Any) -> tuple[str, bool, dict[int, str]]:
+        """Extract answer text and citation mappings from query response chunk.
+        
+        Returns:
+            tuple: (text, is_answer, citations_dict) where citations_dict maps
+                   1-indexed citation numbers to source UUIDs.
+        """
         if not isinstance(data, list):
-            return "", False
+            return "", False, {}
         
         for chunk in data:
             if isinstance(chunk, list) and len(chunk) >= 3:
@@ -2040,10 +2056,24 @@ class NotebookLMClient:
                                             type_info = first[4]
                                             if len(type_info) > 0 and isinstance(type_info[-1], int):
                                                 is_answer = type_info[-1] == 1
-                                        return text, is_answer
+                                        
+                                        # Extract citation mappings from parsed[1]
+                                        citations: dict[int, str] = {}
+                                        if len(parsed) > 1 and isinstance(parsed[1], list):
+                                            citation_list = parsed[1]
+                                            for idx, cite_item in enumerate(citation_list):
+                                                try:
+                                                    # Path: cite_item[5][0][0][0] = source UUID
+                                                    source_uuid = cite_item[5][0][0][0]
+                                                    if isinstance(source_uuid, str):
+                                                        citations[idx + 1] = source_uuid
+                                                except (IndexError, TypeError):
+                                                    pass
+                                        
+                                        return text, is_answer, citations
                         except json.JSONDecodeError:
                             pass
-        return "", False
+        return "", False, {}
     
     def _build_conversation_history(self, conversation_id: str) -> list | None:
         """Build conversation history for follow-up queries."""

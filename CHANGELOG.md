@@ -8,6 +8,15 @@ All notable changes to this project will be documented in this file.
   - `nlm config show`: Display current config (TOML/JSON).
   - `nlm config get <key>`: specific setting.
   - `nlm config set <key> <value>`: Update setting.
+- **Interactive Chat REPL**: New `nlm chat start <notebook-id>` for multi-turn conversations.
+  - Maintains conversation context across turns
+  - Slash commands: `/exit`, `/clear`, `/sources`, `/help`
+  - Rich Markdown rendering for AI responses
+
+### Fixed
+- **Citation Display**: Fixed incorrect source titles in REPL citation legend.
+  - Citations now correctly map to source UUIDs via backend metadata.
+  - Multiple citations referencing the same source are grouped together.
 
 ## [0.1.4] - 2026-01-15
 

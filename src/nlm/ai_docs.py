@@ -30,6 +30,14 @@ nlm auth status
 ```
 Shows: `✓ Authenticated` or error if expired.
 
+### Auto-Authentication Recovery (Automatic)
+The CLI includes 3-layer automatic recovery:
+1. **CSRF/Session Refresh**: Automatically refreshes tokens on 401 errors
+2. **Token Reload**: Reloads tokens from disk if updated externally (e.g., by another session)
+3. **Headless Auth**: If Chrome profile has saved login, attempts headless authentication
+
+This means most session expirations are handled automatically. You only need to manually run `nlm login` if all recovery layers fail.
+
 ### Session Expired?
 If ANY command returns:
 - "Cookies have expired"
@@ -54,9 +62,10 @@ nlm <command> [subcommand] [options]
 |---------|-------------|
 | `nlm login` | Authenticate with NotebookLM (**START HERE**) |
 | `nlm auth` | Check authentication status (status, list, delete) |
+| `nlm config` | View/edit configuration (show, get, set) |
 | `nlm notebook` | Manage notebooks (list, create, get, describe, rename, delete, query) |
 | `nlm source` | Manage sources (list, add, get, describe, content, delete, stale, sync) |
-| `nlm chat` | Configure chat settings (configure) |
+| `nlm chat` | Chat with notebooks (start, configure) |
 | `nlm studio` | Manage artifacts (status, delete) |
 | `nlm research` | Research and discover sources (start, status, import) |
 | `nlm alias` | Manage ID shortcuts (set, get, list, delete) |
@@ -107,6 +116,15 @@ nlm auth status                        # Check current auth
 nlm auth status --profile work         # Check specific profile
 nlm auth list                          # List all profiles
 nlm auth delete work --confirm         # Delete a profile
+```
+
+### Config Commands
+
+```bash
+nlm config show                        # Display current config (TOML)
+nlm config show --json                 # Display as JSON
+nlm config get <key>                   # Get specific setting
+nlm config set <key> <value>           # Update setting
 ```
 
 ### Notebook Commands
@@ -160,9 +178,18 @@ nlm source sync <notebook-id> --confirm  # Sync all stale
 nlm source sync <notebook-id> --source-ids <ids> --confirm  # Sync specific
 ```
 
-### Chat Configuration
+### Chat Commands
 
 ```bash
+# Interactive REPL (multi-turn conversation)
+nlm chat start <notebook-id>           # Start interactive session
+# In REPL:
+#   /sources - List sources
+#   /clear   - Reset conversation
+#   /help    - Show commands
+#   /exit    - Exit
+
+# Configure chat behavior
 nlm chat configure <notebook-id> --goal default
 nlm chat configure <notebook-id> --goal learning_guide
 nlm chat configure <notebook-id> --goal custom --prompt "Act as a tutor..."
