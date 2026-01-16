@@ -34,7 +34,7 @@ BASE_URL = "https://notebooklm.google.com"
 BATCHEXECUTE_URL = f"{BASE_URL}/_/LabsTailwindUi/data/batchexecute"
 
 # Timeout constants
-DRIVE_SOURCE_TIMEOUT = 120.0  # Extended timeout for large Drive sources
+SOURCE_ADD_TIMEOUT = 120.0  # Extended timeout for adding sources (URLs, Drive, etc.)
 
 # Ownership constants
 OWNERSHIP_MINE = 1
@@ -702,8 +702,14 @@ class NotebookLMClient:
         
         return []
     
-    def add_source_url(self, notebook_id: str, url: str) -> dict | None:
-        """Add a URL source to a notebook."""
+    def add_source_url(self, notebook_id: str, url: str, timeout: float | None = None) -> dict | None:
+        """Add a URL source to a notebook.
+        
+        Uses extended timeout (120s) by default for slow-loading URLs.
+        """
+        if timeout is None:
+            timeout = SOURCE_ADD_TIMEOUT
+        
         # YouTube URLs use different position than regular URLs
         is_youtube = "youtube.com" in url or "youtu.be" in url
         
@@ -713,13 +719,19 @@ class NotebookLMClient:
             source_data = [None, None, [url], None, None, None, None, None, None, None, 1]
         
         params = [[source_data], notebook_id, [2], [1, None, None, None, None, None, None, None, None, None, [1]]]
-        return self._call_rpc(RPC.ADD_SOURCE, params, f"/notebook/{notebook_id}")
+        return self._call_rpc(RPC.ADD_SOURCE, params, f"/notebook/{notebook_id}", timeout=timeout)
     
-    def add_source_text(self, notebook_id: str, text: str, title: str = "Pasted Text") -> dict | None:
-        """Add a text source to a notebook."""
+    def add_source_text(self, notebook_id: str, text: str, title: str = "Pasted Text", timeout: float | None = None) -> dict | None:
+        """Add a text source to a notebook.
+        
+        Uses extended timeout (120s) by default for large text sources.
+        """
+        if timeout is None:
+            timeout = SOURCE_ADD_TIMEOUT
+        
         source_data = [None, [title, text], None, 2, None, None, None, None, None, None, 1]
         params = [[source_data], notebook_id, [2], [1, None, None, None, None, None, None, None, None, None, [1]]]
-        return self._call_rpc(RPC.ADD_SOURCE, params, f"/notebook/{notebook_id}")
+        return self._call_rpc(RPC.ADD_SOURCE, params, f"/notebook/{notebook_id}", timeout=timeout)
     
     def add_source_drive(
         self,
@@ -735,7 +747,7 @@ class NotebookLMClient:
         """
         # Use extended timeout for Drive sources (large files can take 60s+)
         if timeout is None:
-            timeout = DRIVE_SOURCE_TIMEOUT
+            timeout = SOURCE_ADD_TIMEOUT
         mime_types = {
             "doc": "application/vnd.google-apps.document",
             "slides": "application/vnd.google-apps.presentation",
