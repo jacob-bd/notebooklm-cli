@@ -8,6 +8,8 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 </div>
 
+> ⚠️ **Important Disclaimer**: This CLI uses **internal APIs** that are undocumented and may change without notice. Not affiliated with or endorsed by Google. Use at your own risk for personal/experimental purposes. See also: [notebooklm-mcp](https://github.com/jacob-bd/notebooklm-mcp) for MCP server integration.
+
 ---
 
 ## ✨ Features
@@ -193,7 +195,33 @@ All generation commands require `--confirm` (or `-y`) to execute:
 | `nlm studio status <notebook-id>` | List all generated artifacts |
 | `nlm studio delete <notebook-id> <artifact-id> --confirm` | Delete an artifact |
 
----
+### Chat (Interactive Q&A)
+
+| Command | Description |
+|---------|-------------|
+| `nlm chat start <notebook-id>` | Start interactive REPL session |
+| `nlm chat configure <notebook-id>` | Configure chat goal and response style |
+| `nlm notebook query <id> "question"` | One-shot question (no session) |
+
+**Chat REPL commands:** `/sources`, `/clear`, `/help`, `/exit`
+
+### Configuration
+
+| Command | Description |
+|---------|-------------|
+| `nlm config show` | Show current configuration |
+| `nlm config get <key>` | Get a specific setting |
+| `nlm config set <key> <value>` | Update a setting |
+
+### Authentication
+
+| Command | Description |
+|---------|-------------|
+| `nlm login` | Authenticate with Chrome |
+| `nlm login --check` | Verify current credentials |
+| `nlm auth status` | Check session validity |
+| `nlm auth list` | List all profiles |
+| `nlm auth delete <profile> --confirm` | Delete a profile |
 
 ## 🎛️ Output Formats
 
@@ -288,6 +316,24 @@ cd notebooklm-cli
 uv pip install -e ".[dev]"
 uv run pytest
 ```
+
+---
+
+## ⚠️ Limitations
+
+- **Rate limits**: Free tier has ~50 queries/day
+- **No official support**: API may change without notice
+- **Cookie expiration**: Need to re-authenticate every few weeks
+
+---
+
+## 🎨 Vibe Coding Alert
+
+Full transparency: this project was built by a non-developer using AI coding assistants. If you're an experienced Python developer, you might look at this codebase and wince. That's okay.
+
+The goal here was to scratch an itch—programmatic access to NotebookLM—and learn along the way. The code works, but it's likely missing patterns, optimizations, or elegance that only years of experience can provide.
+
+**This is where you come in.** If you see something that makes you cringe, please consider contributing rather than just closing the tab. PRs and issues are welcome.
 
 ---
 
