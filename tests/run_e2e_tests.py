@@ -348,6 +348,8 @@ class TestRunner:
         # Test variations
         self.run_test("source list --json", f"source list {self.ctx.notebook_id} --json")
         self.run_test("source list --quiet", f"source list {self.ctx.notebook_id} --quiet")
+        self.run_test("source list --drive", f"source list {self.ctx.notebook_id} --drive")
+        self.run_test("source list --drive --skip-freshness", f"source list {self.ctx.notebook_id} --drive --skip-freshness")
         
         # Source operations on first source
         if self.ctx.source_ids:
@@ -355,6 +357,7 @@ class TestRunner:
             self.run_test("source get", f"source get {src_id}")
             self.run_test("source describe", f"source describe {src_id}")
             self.run_test("source content", f"source content {src_id}")
+            self.run_test("source content --output", f"source content {src_id} --output /tmp/nlm_test_content.txt")
     
     def test_group_5_notebook_operations(self):
         """Test Group 5: Notebook operations."""
@@ -378,6 +381,14 @@ class TestRunner:
             "notebook rename",
             f'notebook rename {self.ctx.notebook_id} "NLM CLI Test - Renamed"',
         )
+    
+    def test_group_5b_config(self):
+        """Test Group 5b: Configuration commands."""
+        self.print_header("Test Group 5b: Configuration")
+        
+        self.run_test("config show", "config show")
+        self.run_test("config show --json", "config show --json")
+        self.run_test("config get default_profile", "config get default_profile")
     
     def test_group_6_query_chat(self):
         """Test Group 6: Query and chat configuration."""
@@ -462,15 +473,17 @@ class TestRunner:
             timeout=60,
         )
         
-        self.run_test(
-            "mindmap list",
-            f"mindmap list {self.ctx.notebook_id}",
-        )
+        # Note: mindmap list is deprecated - use studio status which includes mindmaps
         
-        # Studio status
+        # Studio status (includes all artifacts + mindmaps)
         self.run_test(
             "studio status",
             f"studio status {self.ctx.notebook_id}",
+        )
+        
+        self.run_test(
+            "studio status --full",
+            f"studio status {self.ctx.notebook_id} --full",
         )
     
     def test_group_8_fast_research(self):
@@ -605,6 +618,7 @@ class TestRunner:
             self.test_group_3_start_deep_research()
             self.test_group_4_sources()
             self.test_group_5_notebook_operations()
+            self.test_group_5b_config()
             self.test_group_6_query_chat()
             self.test_group_7_content_generation()
             self.test_group_8_fast_research()
