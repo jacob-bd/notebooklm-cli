@@ -66,3 +66,6 @@ coverage.xml
 .security-key
 logs/security/
 todo.md
+
+# MCP reference folder (local only)
+mcp-reference/

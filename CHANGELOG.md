@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8] - 2026-01-17
+
+### Added
+- **Documentation**: New `docs/TROUBLESHOOTING.md` with common issues and solutions.
+  - Includes OpenAI Codex sandbox network access configuration.
+- **Source Types**: Added support for `uploaded_file`, `image`, and `word_doc` source types.
+
+### Fixed
+- **URL Parsing**: Fixed URL extraction for different source types in `source list`:
+  - YouTube videos now correctly extract URL from metadata index 5.
+  - Web pages correctly extract URL from metadata index 7.
+  - Drive documents now generate proper Drive URLs from document IDs.
+
 ## [0.1.7] - 2026-01-16
 
 ### Added

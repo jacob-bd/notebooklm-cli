@@ -285,12 +285,7 @@ nlm login
 
 ## 🔧 Troubleshooting
 
-| Error | Solution |
-|-------|----------|
-| "Cookies have expired" | Run `nlm login` |
-| "Notebook not found" | Check ID with `nlm notebook list` |
-| "Research already in progress" | Use `--force` flag or import existing results |
-| Chrome doesn't launch | Ensure Chrome is installed and in your PATH |
+Having issues? See the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for solutions to common problems including authentication, network issues, and OpenAI Codex sandbox configuration.
 
 ---
 
@@ -298,6 +293,7 @@ nlm login
 
 For detailed technical documentation on the internal API and advanced usage, see the [`docs/`](docs/) folder:
 
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — Common issues and solutions
 - [CLI Test Plan](docs/CLI_TEST_PLAN.md) — End-to-end testing procedures
 - [Technical Deep Dive](docs/TECHNICAL_DEEP_DIVE.md) — Internal API details
 

@@ -195,16 +195,31 @@ def _parse_notebook_data(nb_data: list) -> Notebook | None:
                 
                 if len(src) > 2 and isinstance(src[2], list):
                     metadata = src[2]
+                    type_code = None
                     if len(metadata) > 4:
                         type_code = metadata[4]
                         source_type = constants.SOURCE_TYPES.get_name(type_code)
                     
-                    # Extract URL (index 7)
-                    # For web/youtube: metadata[7] -> ["https://..."]
-                    if len(metadata) > 7 and isinstance(metadata[7], list) and len(metadata[7]) > 0:
-                        potential_url = metadata[7][0]
-                        if isinstance(potential_url, str):
-                            url = potential_url
+                    # Extract URL based on source type
+                    # YouTube (type 9): URL at metadata[5][0]
+                    # Web pages (type 5): URL at metadata[7][0]
+                    # Drive docs (types 1,2,14): Drive ID at metadata[9][0]
+                    if type_code == constants.SOURCE_TYPE_YOUTUBE:
+                        if len(metadata) > 5 and isinstance(metadata[5], list) and len(metadata[5]) > 0:
+                            potential_url = metadata[5][0]
+                            if isinstance(potential_url, str):
+                                url = potential_url
+                    elif type_code == constants.SOURCE_TYPE_WEB_PAGE:
+                        if len(metadata) > 7 and isinstance(metadata[7], list) and len(metadata[7]) > 0:
+                            potential_url = metadata[7][0]
+                            if isinstance(potential_url, str):
+                                url = potential_url
+                    elif type_code in (constants.SOURCE_TYPE_GOOGLE_DOCS, constants.SOURCE_TYPE_GOOGLE_OTHER, constants.SOURCE_TYPE_WORD_DOC):
+                        # Drive document ID is at metadata[9][0]
+                        if len(metadata) > 9 and isinstance(metadata[9], list) and len(metadata[9]) > 0:
+                            drive_id = metadata[9][0]
+                            if isinstance(drive_id, str):
+                                url = f"https://drive.google.com/file/d/{drive_id}/view"
                 
                 sources.append({
                     "id": src_id, 
