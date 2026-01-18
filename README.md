@@ -12,6 +12,16 @@
 
 ---
 
+## 🎬 Demo
+
+Watch a ~12 minute overview of the CLI in action:
+
+<a href="https://youtu.be/XyXVuALWZkE" target="_blank">
+  <img src="https://img.youtube.com/vi/XyXVuALWZkE/maxresdefault.jpg" alt="NotebookLM CLI Demo" width="600">
+</a>
+
+---
+
 ## ✨ Features
 
 - **Full NotebookLM API Coverage** — Notebooks, sources, audio podcasts, reports, quizzes, flashcards, mind maps, slides, infographics, videos, and data tables
@@ -115,20 +125,32 @@ nlm alias delete myproject  # Remove alias
 
 ## 🤖 AI Integration
 
+### Option 1: Quick Context (`nlm --ai`)
+
 The `--ai` flag outputs comprehensive, structured documentation designed for AI assistants:
 
 ```bash
 nlm --ai
 ```
 
-This prints a 380+ line guide covering:
-- All commands with exact syntax
-- Authentication flow
-- Error handling
-- Complete task sequences
-- Tips for automation
+This prints a 400+ line guide covering all commands with exact syntax, authentication flow, error handling, complete task sequences, and 12 tips for AI automation.
 
-**Use case:** Paste the output of `nlm --ai` into your AI assistant's context to teach it how to use the CLI on your behalf.
+**Use case:** Paste the output of `nlm --ai` into your AI assistant's context to teach it how to use the CLI.
+
+### Option 2: AI Skill (`nlm-cli-skill/`)
+
+For AI coding assistants that support skills (Claude Code, Gemini CLI/Antigravity, OpenAI Codex, etc.), this repo includes a comprehensive skill:
+
+```
+nlm-cli-skill/
+├── SKILL.md              # Main skill file with 10 critical rules
+└── references/
+    ├── command_reference.md   # Complete command signatures
+    ├── troubleshooting.md     # Error diagnosis & solutions
+    └── workflows.md           # End-to-end task sequences
+```
+
+**To use:** Copy the `nlm-cli-skill/` folder to your AI tool's skills directory, or point your tool to this folder directly.
 
 ---
 

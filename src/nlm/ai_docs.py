@@ -87,7 +87,10 @@ nlm <command> [subcommand] [options]
 Create memorable names for long UUIDs:
 
 ```bash
-# Set an alias
+# IMPORTANT: Always check existing aliases before creating new ones
+nlm alias list
+
+# Set an alias (type is auto-detected)
 nlm alias set myproject abc123-def456-...
 
 # Use aliases anywhere an ID is expected
@@ -411,6 +414,10 @@ nlm report create <notebook-id> --format "Study Guide" --confirm
 6. **Research requires `--notebook-id`** - the flag is mandatory
 7. **Session lifetime is ~20 minutes** - re-login if operations start failing
 8. **Use `--max-wait 0`** for single status poll instead of blocking
+9. **⚠️ ALWAYS ask user before delete** - Before running ANY delete command, ask the user for explicit confirmation. Deletions are IRREVERSIBLE. Show what will be deleted and warn about permanent data loss.
+10. **Check aliases before creating** - Run `nlm alias list` before creating a new alias to avoid conflicts with existing names.
+11. **DO NOT launch REPL** - Never use `nlm chat start` - it opens an interactive REPL that AI tools cannot control. Use `nlm notebook query` for one-shot Q&A instead.
+12. **Choose output format wisely** - Default output (no flags) is compact and token-efficient—use it for status checks. Use `--quiet` to capture IDs for piping. Only use `--json` when you need to parse specific fields programmatically.
 """
 
 

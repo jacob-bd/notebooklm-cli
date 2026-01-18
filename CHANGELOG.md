@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.11] - 2026-01-18
+
+### Added
+- **AI Skill**: New `nlm-cli-skill/` folder containing a comprehensive skill for AI coding assistants (Claude Code, Gemini CLI/Antigravity, OpenAI Codex, and any tool supporting SKILL.md format).
+- **AI Docs**: Enhanced `nlm --ai` output with 12 tips for AI assistants including:
+  - Always ask user confirmation before delete operations
+  - Check existing aliases before creating new ones
+  - Do not launch REPL (`nlm chat start`) - use `nlm notebook query` instead
+  - Use `--json` for structured output parsing
+
 ## [0.1.8] - 2026-01-17
 
 ### Added
