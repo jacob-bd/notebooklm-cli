@@ -1562,13 +1562,13 @@ class NotebookLMClient:
                 status_code = artifact_data[4] if len(artifact_data) > 4 else None
                 
                 type_map = {
-                    StudioType.AUDIO: "audio",
-                    StudioType.REPORT: "report",
-                    StudioType.VIDEO: "video",
-                    StudioType.FLASHCARDS: "flashcards",
-                    StudioType.INFOGRAPHIC: "infographic",
-                    StudioType.SLIDE_DECK: "slide_deck",
-                    StudioType.DATA_TABLE: "data_table",
+                    constants.STUDIO_TYPE_AUDIO: "audio",
+                    constants.STUDIO_TYPE_REPORT: "report",
+                    constants.STUDIO_TYPE_VIDEO: "video",
+                    constants.STUDIO_TYPE_FLASHCARDS: "flashcards",
+                    constants.STUDIO_TYPE_INFOGRAPHIC: "infographic",
+                    constants.STUDIO_TYPE_SLIDE_DECK: "slide_deck",
+                    constants.STUDIO_TYPE_DATA_TABLE: "data_table",
                 }
                 
                 artifacts.append({
@@ -1728,9 +1728,16 @@ class NotebookLMClient:
                         "type_code": src[3] if len(src) > 3 and isinstance(src[3], int) else None,
                     })
             
+            # Status codes from API:
+            # 1 = in_progress (researching)
+            # 2 = completed (ready for import)  
+            # 6 = imported (sources added to notebook)
+            task_status = "completed" if status_code in (2, 6) else "in_progress"
+            
             task_dict = {
                 "task_id": task_id,
-                "status": "completed" if status_code == 6 else "in_progress",
+                "status": task_status,
+                "status_code": status_code,
                 "sources": sources,
                 "source_count": len(sources),
             }
@@ -1859,18 +1866,51 @@ class NotebookLMClient:
     def get_research_status(
         self,
         notebook_id: str,
-        poll_interval: int = 30,
+        poll_interval: int = 5,  # 5 seconds for responsive polling
         max_wait: int = 300,
         compact: bool = True,
         task_id: str | None = None,
     ) -> dict:
-        """Get research status. Wrapper around poll_research with CLI-compatible signature."""
-        # For now, just do a single poll. Full polling loop could be added if needed.
-        result = self.poll_research(notebook_id, target_task_id=task_id)
-        # Add sources_found for CLI compatibility
-        if result and "source_count" in result:
-            result["sources_found"] = result["source_count"]
-        return result
+        """Get research status with polling support.
+        
+        Args:
+            notebook_id: Notebook UUID
+            poll_interval: Seconds between status checks (default 5)
+            max_wait: Maximum seconds to wait for completion (0 for single check)
+            compact: Whether to return compact results
+            task_id: Optional specific task ID to check
+            
+        Returns:
+            Research status dict with status, sources_found, etc.
+        """
+        import time
+        
+        start_time = time.time()
+        
+        while True:
+            result = self.poll_research(notebook_id, target_task_id=task_id)
+            
+            # Add sources_found for CLI compatibility
+            if result and "source_count" in result:
+                result["sources_found"] = result["source_count"]
+            
+            # Check if we should stop polling
+            status = result.get("status", "no_research") if result else "no_research"
+            
+            # Stop if: completed (status_code 2 or 6), failed, no_research, or not waiting
+            if status in ("completed", "failed", "no_research") or max_wait == 0:
+                return result
+            
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed >= max_wait:
+                return result
+            
+            # Wait before next poll
+            remaining = max_wait - elapsed
+            wait_time = min(poll_interval, remaining)
+            if wait_time > 0:
+                time.sleep(wait_time)
     
     def import_research(
         self,

@@ -58,6 +58,9 @@ class TestRunner:
     # Hardcoded test resources
     TEST_YOUTUBE_URL = "https://www.youtube.com/watch?v=d-PZDQlO4m4"
     TEST_URL = "https://en.wikipedia.org/wiki/Artificial_intelligence"
+    # Public read-only Google Doc for automated testing (source add only, not sync)
+    TEST_DRIVE_DOC_ID = "1KcEFkycep4QZTuZ7OkLVWkNZ2sIeqCKULfz9EhWLCw8"
+    TEST_DRIVE_DOC_TITLE = "NLM CLI Test Document"
     
     def __init__(
         self,
@@ -200,9 +203,10 @@ class TestRunner:
         print("DRIVE DOCUMENT SETUP")
         print("-" * 50)
         print("\nFor the staleness/sync test, you need a Google Drive document you can edit.")
-        print("Example URL: https://docs.google.com/document/d/YOUR_DOC_ID/edit\n")
+        print("Example URL: https://docs.google.com/document/d/YOUR_DOC_ID/edit")
+        print(f"\nDefault (read-only, for source add test only): {self.TEST_DRIVE_DOC_ID[:20]}...\n")
         
-        drive_url = self.prompt_user("Enter your Drive document URL (or press Enter to skip Drive tests):")
+        drive_url = self.prompt_user("Enter your Drive document URL (or press Enter to use default):")
         
         if drive_url:
             # Extract doc ID from URL
@@ -223,9 +227,16 @@ class TestRunner:
                 print(f"\n⚠️  REMEMBER: Later you'll be asked to edit this document for the freshness test.")
                 print("   Keep it open in another browser tab!")
             else:
-                print("⚠️  Could not extract doc ID from URL. Drive tests will be skipped.")
+                print("⚠️  Could not extract doc ID from URL. Using default read-only doc.")
+                self.ctx.drive_doc_id = self.TEST_DRIVE_DOC_ID
+                self.ctx.drive_doc_title = self.TEST_DRIVE_DOC_TITLE
+                self.ctx.drive_doc_type = "doc"
         else:
-            print("⚠️  No Drive document provided. Drive tests will be skipped.")
+            # Use default public doc
+            print("✓ Using default public test document (read-only, sync tests will be skipped).")
+            self.ctx.drive_doc_id = self.TEST_DRIVE_DOC_ID
+            self.ctx.drive_doc_title = self.TEST_DRIVE_DOC_TITLE
+            self.ctx.drive_doc_type = "doc"
         
         print("\n" + "-" * 50)
         confirm = self.prompt_user("Ready to start tests? (y/n):").lower()
@@ -243,7 +254,7 @@ class TestRunner:
         self.run_test(
             "login --help",
             "login --help",
-            lambda c, o, e: "--legacy" in o and "--check" in o,
+            lambda c, o, e: "--manual" in o and "--check" in o,
         )
         
         # Check valid auth
@@ -282,23 +293,38 @@ class TestRunner:
         
         return True
     
-    def test_group_3_start_deep_research(self):
-        """Test Group 3: Start deep research (background task)."""
-        self.print_header("Test Group 3: Start Deep Research (Background)")
+    def test_group_3_fast_research(self):
+        """Test Group 3: Fast research (complete cycle - runs first to avoid conflicts)."""
+        self.print_header("Test Group 3: Fast Research (Complete Cycle)")
         
-        print("   Starting deep research - this runs in background while we do other tests...")
+        print("   Running fast research first (~30s)...\n")
         
         result = self.run_test(
-            "research start (deep)",
-            f'research start "artificial intelligence applications" --mode deep --notebook-id {self.ctx.notebook_id}',
+            "research start (fast)",
+            f'research start "machine learning basics" --mode fast --notebook-id {self.ctx.notebook_id}',
             timeout=30,
         )
         
-        # Extract task ID if available
+        # Extract task ID
         task_match = re.search(r'Task ID: ([a-zA-Z0-9_-]+)', result.output)
         if task_match:
-            self.ctx.deep_task_id = task_match.group(1)
-            print(f"   🔬 Deep Research Task ID: {self.ctx.deep_task_id}")
+            self.ctx.fast_task_id = task_match.group(1)
+            print(f"   ⚡ Fast Research Task ID: {self.ctx.fast_task_id}")
+        
+        # Wait for completion - verify it actually says "completed"
+        self.run_test(
+            "research status (fast)",
+            f"research status {self.ctx.notebook_id} --max-wait 45",
+            lambda c, o, e: c == 0 and ("completed" in o.lower() or "sources found" in o.lower()),
+            timeout=120,
+        )
+        
+        # Import sources - verify at least 1 source was imported
+        self.run_test(
+            "research import (fast)",
+            f"research import {self.ctx.notebook_id}",
+            lambda c, o, e: c == 0 and "Imported" in o and "0 source" not in o,
+        )
     
     def test_group_4_sources(self):
         """Test Group 4: Source management."""
@@ -388,7 +414,7 @@ class TestRunner:
         
         self.run_test("config show", "config show")
         self.run_test("config show --json", "config show --json")
-        self.run_test("config get default_profile", "config get default_profile")
+        self.run_test("config get auth.default_profile", "config get auth.default_profile")
     
     def test_group_6_query_chat(self):
         """Test Group 6: Query and chat configuration."""
@@ -486,34 +512,23 @@ class TestRunner:
             f"studio status {self.ctx.notebook_id} --full",
         )
     
-    def test_group_8_fast_research(self):
-        """Test Group 8: Fast research (complete cycle)."""
-        self.print_header("Test Group 8: Fast Research")
+    def test_group_8_start_deep_research(self):
+        """Test Group 8: Start deep research (background task - after fast research completes)."""
+        self.print_header("Test Group 8: Start Deep Research (Background)")
+        
+        print("   Starting deep research - this runs in background while we do other tests...\n")
         
         result = self.run_test(
-            "research start (fast)",
-            f'research start "machine learning basics" --mode fast --notebook-id {self.ctx.notebook_id}',
+            "research start (deep)",
+            f'research start "artificial intelligence applications" --mode deep --notebook-id {self.ctx.notebook_id} --force',
             timeout=30,
         )
         
-        # Extract task ID
+        # Extract task ID if available
         task_match = re.search(r'Task ID: ([a-zA-Z0-9_-]+)', result.output)
         if task_match:
-            self.ctx.fast_task_id = task_match.group(1)
-        
-        # Wait for completion
-        self.run_test(
-            "research status (fast)",
-            f"research status {self.ctx.notebook_id} --max-wait 90",
-            timeout=120,
-        )
-        
-        # Import first 2 sources
-        if self.ctx.fast_task_id:
-            self.run_test(
-                "research import (fast)",
-                f"research import {self.ctx.notebook_id} {self.ctx.fast_task_id} --indices 0,1",
-            )
+            self.ctx.deep_task_id = task_match.group(1)
+            print(f"   🔬 Deep Research Task ID: {self.ctx.deep_task_id}")
     
     def test_group_9_deep_research(self):
         """Test Group 9: Check deep research (should be done by now)."""
@@ -523,26 +538,39 @@ class TestRunner:
             self.skip_test("research status (deep)", "No deep research task started")
             return
         
-        print("   Checking deep research status (may need to wait)...\n")
+        print("   Checking deep research status (may need to wait up to 5 min)...\n")
         
+        # Wait for completion - verify it actually says "completed"
         self.run_test(
             "research status (deep)",
-            f"research status {self.ctx.notebook_id} --max-wait 180",
-            timeout=240,
+            f"research status {self.ctx.notebook_id} --max-wait 300",
+            lambda c, o, e: c == 0 and ("completed" in o.lower() or "sources found" in o.lower()),
+            timeout=360,
         )
         
+        # Import sources - verify at least 1 source was imported
         self.run_test(
             "research import (deep)",
-            f"research import {self.ctx.notebook_id} {self.ctx.deep_task_id}",
+            f"research import {self.ctx.notebook_id}",
+            lambda c, o, e: c == 0 and "Imported" in o and "0 source" not in o,
         )
     
     def test_group_10_drive_sync(self):
         """Test Group 10: Drive sync (interactive)."""
         self.print_header("Test Group 10: Drive Sync (Interactive)")
         
-        if not self.ctx.drive_doc_id or self.skip_interactive:
-            self.skip_test("source stale", "Drive tests skipped")
-            self.skip_test("source sync", "Drive tests skipped")
+        # Skip if no drive doc, or skip_interactive, or using default read-only doc
+        using_default_doc = self.ctx.drive_doc_id == self.TEST_DRIVE_DOC_ID
+        
+        if not self.ctx.drive_doc_id:
+            self.skip_test("source stale", "No Drive document configured")
+            self.skip_test("source sync", "No Drive document configured")
+            return
+        
+        if self.skip_interactive or using_default_doc:
+            reason = "Using read-only default doc" if using_default_doc else "Running in non-interactive mode"
+            self.skip_test("source stale", reason)
+            self.skip_test("source sync", reason)
             return
         
         # Initial freshness check
@@ -615,14 +643,14 @@ class TestRunner:
                 print("\n❌ Failed to create test notebook. Aborting.")
                 return 1
             
-            self.test_group_3_start_deep_research()
+            self.test_group_3_fast_research()  # Fast research first (complete cycle)
             self.test_group_4_sources()
             self.test_group_5_notebook_operations()
             self.test_group_5b_config()
             self.test_group_6_query_chat()
             self.test_group_7_content_generation()
-            self.test_group_8_fast_research()
-            self.test_group_9_deep_research()
+            self.test_group_8_start_deep_research()  # Deep research starts here (runs in background)
+            self.test_group_9_deep_research()  # Check deep research completion
             self.test_group_10_drive_sync()
             
         except KeyboardInterrupt:
