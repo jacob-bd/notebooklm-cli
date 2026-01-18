@@ -214,14 +214,21 @@ def research_status(
             for i, t in enumerate(all_tasks):
                 t_status = t.get("status", "unknown")
                 t_style = {"completed": "green", "in_progress": "yellow"}.get(t_status, "")
-                console.print(f"  [{i+1}] Task ID: {t.get('task_id', 'unknown')}")
+                task_id_str = t.get('task_id', 'unknown')
+                console.print(f"  [{i+1}] Task ID: [cyan]{task_id_str}[/cyan]")
                 console.print(f"      Status: [{t_style}]{t_status}[/{t_style}]" if t_style else f"      Status: {t_status}")
                 console.print(f"      Sources: {t.get('source_count', 0)}")
         else:
+            # Show task ID for single task too
+            task_id_val = task.get('task_id', '')
             if status_style:
                 console.print(f"  Status: [{status_style}]{status}[/{status_style}]")
+            if task_id_val:
+                console.print(f"  Task ID: [cyan]{task_id_val}[/cyan]")
             else:
                 console.print(f"  Status: {status}")
+                if task_id_val:
+                    console.print(f"  Task ID: [cyan]{task_id_val}[/cyan]")
             console.print(f"  Sources found: {sources_found}")
         
         if report and not compact:
@@ -253,23 +260,50 @@ def research_status(
 @app.command("import")
 def import_research(
     notebook_id: str = typer.Argument(..., help="Notebook ID"),
-    task_id: str = typer.Argument(..., help="Research task ID"),
+    task_id: Optional[str] = typer.Argument(None, help="Research task ID (auto-detects if not provided)"),
     indices: Optional[str] = typer.Option(
         None, "--indices", "-i",
         help="Comma-separated indices of sources to import (default: all)",
     ),
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="Profile to use"),
 ) -> None:
-    """Import discovered sources from a completed research task."""
+    """
+    Import discovered sources from a completed research task.
+    
+    If TASK_ID is not provided, automatically imports from the first
+    available completed or in-progress research task.
+    """
     try:
         source_indices = None
         if indices:
             source_indices = [int(i.strip()) for i in indices.split(",")]
         
         notebook_id = get_alias_manager().resolve(notebook_id)
-        task_id = get_alias_manager().resolve(task_id)
         
         with get_client(profile) as client:
+            # Auto-detect task ID if not provided
+            if not task_id:
+                research = client.poll_research(notebook_id)
+                if not research or research.get("status") == "no_research":
+                    console.print("[red]Error:[/red] No research tasks found for this notebook.")
+                    console.print("[dim]Start a research task first with 'nlm research start'.[/dim]")
+                    raise typer.Exit(1)
+                
+                # Get task ID from first task
+                task_id = research.get("task_id")
+                if not task_id:
+                    tasks = research.get("tasks", [])
+                    if tasks:
+                        task_id = tasks[0].get("task_id")
+                
+                if not task_id:
+                    console.print("[red]Error:[/red] Could not determine task ID.")
+                    raise typer.Exit(1)
+                
+                console.print(f"[dim]Using task: {task_id}[/dim]")
+            else:
+                task_id = get_alias_manager().resolve(task_id)
+            
             sources = client.import_research(notebook_id, task_id, source_indices)
         
         console.print(f"[green]✓[/green] Imported {len(sources) if sources else 0} source(s)")

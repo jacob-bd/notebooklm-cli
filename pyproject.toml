@@ -1,6 +1,6 @@
 [project]
 name = "notebooklm-cli"
-version = "0.1.9"
+version = "0.1.10"
 description = "Command-line interface for Google NotebookLM"
 readme = "README.md"
 license = {text = "MIT"}
