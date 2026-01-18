@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.12] - 2026-01-18
+
+### Added
+- **Demo Video**: Added ~12 minute demo video to README
+
 ## [0.1.11] - 2026-01-18
 
 ### Added
