@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.jpeg" alt="NotebookLM CLI Logo" width="600">
+  <img src="assets/logo.jpeg" alt="NotebookLM CLI Logo">
   <h1>NLM - NotebookLM CLI</h1>
   <p><strong>A powerful command-line interface for Google NotebookLM</strong></p>
 
