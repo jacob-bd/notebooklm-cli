@@ -137,10 +137,14 @@ This prints a 400+ line guide covering all commands with exact syntax, authentic
 
 **Use case:** Paste the output of `nlm --ai` into your AI assistant's context to teach it how to use the CLI.
 
-### Option 2: AI Skill (`nlm-cli-skill/`)
+### Option 2: AI Skill (`nlm-cli-skill`)
 
-For AI coding assistants that support skills (Claude Code, Gemini CLI/Antigravity, OpenAI Codex, etc.), this repo includes a comprehensive skill:
+For AI coding assistants that support skills (Claude Code, Gemini CLI/Antigravity, etc.), we provide a pre-packaged skill.
 
+1. **Download**: Go to the [Releases page](https://github.com/jacob-bd/notebooklm-cli/releases) and download `nlm-cli-skill.zip` from the **Assets** section.
+2. **Install**: Extract the zip file into your AI tool's skills directory (e.g., `~/.gemini/antigravity/skills/`, `~/.claude/skills`, etc.).
+
+**Structure:**
 ```
 nlm-cli-skill/
 ├── SKILL.md              # Main skill file with 10 critical rules
@@ -149,8 +153,6 @@ nlm-cli-skill/
     ├── troubleshooting.md     # Error diagnosis & solutions
     └── workflows.md           # End-to-end task sequences
 ```
-
-**To use:** Copy the `nlm-cli-skill/` folder to your AI tool's skills directory, or point your tool to this folder directly.
 
 ---
 
