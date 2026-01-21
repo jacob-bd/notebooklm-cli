@@ -17,7 +17,7 @@
 Watch a ~12 minute overview of the CLI in action:
 
 <a href="https://youtu.be/XyXVuALWZkE" target="_blank">
-  <img src="https://img.youtube.com/vi/XyXVuALWZkE/maxresdefault.jpg" alt="NotebookLM CLI Demo" width="600">
+  <img src="https://img.youtube.com/vi/XyXVuALWZkE/maxresdefault.jpg?v=2" alt="NotebookLM CLI Demo" width="600">
 </a>
 
 ---
