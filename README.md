@@ -141,7 +141,7 @@ This prints a 400+ line guide covering all commands with exact syntax, authentic
 
 For AI coding assistants that support skills (Claude Code, Gemini CLI/Antigravity, etc.), we provide a pre-packaged skill.
 
-1. **Download**: Go to the [Releases page](https://github.com/jacob-bd/notebooklm-cli/releases) and download `nlm-cli-skill.zip` from the **Assets** section.
+1. **Download**: [Click here to download nlm-cli-skill.zip](assets/nlm-cli-skill.zip) (hosted in this repo).
 2. **Install**: Extract the zip file into your AI tool's skills directory (e.g., `~/.gemini/antigravity/skills/`, `~/.claude/skills`, etc.).
 
 **Structure:**
