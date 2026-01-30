@@ -1,4 +1,20 @@
 <div align="center">
+
+> [!CAUTION]
+> ## 🚨 Project Deprecated
+> **This project has been merged into [NotebookLM MCP CLI](https://github.com/jacob-bd/notebooklm-mcp-cli).**
+> 
+> No further updates will be made to this repository. Please migrate to the new unified package:
+> ```bash
+> pip install notebooklm-mcp-cli
+> ```
+> The new package includes both the CLI (`nlm`) and MCP server (`notebooklm-mcp`) in a single installation.
+
+</div>
+
+---
+
+<div align="center">
   <img src="assets/logo.jpeg" alt="NotebookLM CLI Logo">
   <h1>NLM - NotebookLM CLI</h1>
   <p><strong>A powerful command-line interface for Google NotebookLM</strong></p>
@@ -8,7 +24,7 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 </div>
 
-> ⚠️ **Important Disclaimer**: This CLI uses **internal APIs** that are undocumented and may change without notice. Not affiliated with or endorsed by Google. Use at your own risk for personal/experimental purposes. See also: [notebooklm-mcp](https://github.com/jacob-bd/notebooklm-mcp) for MCP server integration.
+> ⚠️ **Important Disclaimer**: This CLI uses **internal APIs** that are undocumented and may change without notice. Not affiliated with or endorsed by Google. Use at your own risk for personal/experimental purposes. See also: [notebooklm-mcp-cli](https://github.com/jacob-bd/notebooklm-mcp-cli) for the unified CLI + MCP server.
 
 ---
 
