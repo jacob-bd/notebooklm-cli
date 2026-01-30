@@ -4,10 +4,7 @@
 > ## 🚨 Project Deprecated
 > **This project has been merged into [NotebookLM MCP CLI](https://github.com/jacob-bd/notebooklm-mcp-cli).**
 > 
-> No further updates will be made to this repository. Please migrate to the new unified package:
-> ```bash
-> pip install notebooklm-mcp-cli
-> ```
+> No further updates will be made to this repository.
 > The new package includes both the CLI (`nlm`) and MCP server (`notebooklm-mcp`) in a single installation.
 
 </div>
