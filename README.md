@@ -19,6 +19,8 @@
   [![PyPI version](https://img.shields.io/pypi/v/notebooklm-cli.svg)](https://pypi.org/project/notebooklm-cli/)
   [![Python](https://img.shields.io/pypi/pyversions/notebooklm-cli.svg)](https://pypi.org/project/notebooklm-cli/)
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+  [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jacobbd)
+
 </div>
 
 > ‼️⚠️ **Important Disclaimer**: This CLI uses **internal APIs** that are undocumented and may change without notice. Not affiliated with or endorsed by Google. Use at your own risk for personal/experimental purposes. See also: [notebooklm-mcp-cli](https://github.com/jacob-bd/notebooklm-mcp-cli) for the unified CLI + MCP server.
